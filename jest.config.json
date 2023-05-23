@@ -1,0 +1,7 @@
+{
+  "preset": "ts-jest",
+  "clearMocks": true,
+  "notifyMode": "failure-change",
+  "testEnvironment": "node",
+  "verbose": true
+}
