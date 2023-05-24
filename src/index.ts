@@ -10,7 +10,7 @@ import * as os from 'os'
 
 import { userAgentOnRequest } from './telemetryProcessors'
 
-export const init = (options: appinsightOptions) => {
+const init = (options: appinsightOptions) => {
   if (!anyValidConnection(options)) {
     return
   }
@@ -44,3 +44,5 @@ const setInstanceName = (name: string) => {
   }
   appInsights.defaultClient.context.tags['ai.cloud.roleInstance'] = `${name}-${os.hostname()}`
 }
+
+export const KthAppinsights = { init }

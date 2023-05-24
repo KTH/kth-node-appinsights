@@ -10,7 +10,7 @@ const mockOs = { hostname: jest.fn() }
 jest.mock('applicationinsights', () => applicationinsightsMock)
 jest.mock('os', () => mockOs)
 
-import { init } from './index'
+import { KthAppinsights } from './index'
 
 describe('init applicationinsights', () => {
   beforeEach(() => {
@@ -26,34 +26,34 @@ describe('init applicationinsights', () => {
       delete process.env.APPINSIGHTS_INSTRUMENTATIONKEY
     })
     it('uses connection string if passed', () => {
-      init({ connectionString: 'my-connection-string' })
+      KthAppinsights.init({ connectionString: 'my-connection-string' })
       expect(applicationinsightsMock.setup).toHaveBeenCalledWith('my-connection-string')
       expect(applicationinsightsMock.start).toHaveBeenCalled()
     })
     it('uses instrumentation key if passed', () => {
-      init({ instrumentationKey: 'my-instrumentation-key' })
+      KthAppinsights.init({ instrumentationKey: 'my-instrumentation-key' })
       expect(applicationinsightsMock.setup).toHaveBeenCalledWith('my-instrumentation-key')
       expect(applicationinsightsMock.start).toHaveBeenCalled()
     })
     it('prioritizes connection string if both are passed', () => {
-      init({ instrumentationKey: 'my-instrumentation-key', connectionString: 'my-connection-string' })
+      KthAppinsights.init({ instrumentationKey: 'my-instrumentation-key', connectionString: 'my-connection-string' })
       expect(applicationinsightsMock.setup).toHaveBeenCalledWith('my-connection-string')
       expect(applicationinsightsMock.start).toHaveBeenCalled()
     })
     it('passes nothing when config are missing and env:APPLICATIONINSIGHTS_CONNECTION_STRING exists', () => {
       process.env.APPLICATIONINSIGHTS_CONNECTION_STRING = 'my-env-connection-string'
-      init({})
+      KthAppinsights.init({})
       expect(applicationinsightsMock.setup).toHaveBeenCalledWith()
       expect(applicationinsightsMock.start).toHaveBeenCalled()
     })
     it('passes nothing when config are missing and env:APPLICATIONINSIGHTS_CONNECTION_STRING exists', () => {
       process.env.APPINSIGHTS_INSTRUMENTATIONKEY = 'my-env-instrumentation-key'
-      init({})
+      KthAppinsights.init({})
       expect(applicationinsightsMock.setup).toHaveBeenCalledWith()
       expect(applicationinsightsMock.start).toHaveBeenCalled()
     })
     it('does not initialize if config and env is missing', () => {
-      init({})
+      KthAppinsights.init({})
       expect(applicationinsightsMock.setup).not.toHaveBeenCalled()
       expect(applicationinsightsMock.start).not.toHaveBeenCalled()
     })
@@ -61,12 +61,12 @@ describe('init applicationinsights', () => {
   describe('cloud-role-name', () => {
     beforeEach(() => {})
     it('sets if "name" is included in options', () => {
-      init({ name: 'my-application' })
+      KthAppinsights.init({ name: 'my-application' })
 
       expect(applicationinsightsMock.defaultClient.context.tags['ai.cloud.role']).toBe('my-application')
     })
     it('does not set without "name" in options', () => {
-      init({})
+      KthAppinsights.init({})
 
       expect(Object.keys(applicationinsightsMock.defaultClient.context.tags)).not.toContain('ai.cloud.role')
     })
@@ -76,21 +76,21 @@ describe('init applicationinsights', () => {
     it('sets if "name" is included in options and hostname is resolvable', () => {
       mockOs.hostname.mockReturnValue('my_host')
 
-      init({ name: 'my_application' })
+      KthAppinsights.init({ name: 'my_application' })
 
       expect(applicationinsightsMock.defaultClient.context.tags['ai.cloud.roleInstance']).toBe('my_application-my_host')
     })
     it('does not set without "name" in options', () => {
       mockOs.hostname.mockReturnValue('my_host')
 
-      init({})
+      KthAppinsights.init({})
 
       expect(Object.keys(applicationinsightsMock.defaultClient.context.tags)).not.toContain('ai.cloud.roleInstance')
     })
     it('does not set when hostname is not resolvable', () => {
       mockOs.hostname.mockReturnValue(undefined)
 
-      init({ name: 'my_application' })
+      KthAppinsights.init({ name: 'my_application' })
 
       expect(Object.keys(applicationinsightsMock.defaultClient.context.tags)).not.toContain('ai.cloud.roleInstance')
     })
