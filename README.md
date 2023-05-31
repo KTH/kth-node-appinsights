@@ -28,6 +28,13 @@ type appinsightOptions = {
 
 The if `name` is passed in the options, it will be used to set "Cloud role name" and "Cloud role instance".
 
-### User agent om requests
+### User agent on requests
 
 If a request has the `user-agent` header set, it will be saved in the custom property `user_agent`.
+
+### Unpack Bunyan messages
+
+Bynyan messages (used by @kth/log) will be desctructured, and only the "msg" field kept, as all other information is duplicated on native data fields.  
+
+Example:  
+`{ name: "my-app", level: 30, msg: "the important part" }` will be reduced to just `"the important part"`.
