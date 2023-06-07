@@ -8,7 +8,7 @@ import * as appInsights from 'applicationinsights'
 
 import * as os from 'os'
 
-import { userAgentOnRequest } from './telemetryProcessors'
+import { userAgentOnRequest, unpackBunyanLog } from './telemetryProcessors'
 
 const init = (options: appinsightOptions) => {
   if (!anyValidConnection(options)) {
@@ -22,6 +22,7 @@ const init = (options: appinsightOptions) => {
   }
 
   appInsights.defaultClient.addTelemetryProcessor(userAgentOnRequest)
+  appInsights.defaultClient.addTelemetryProcessor(unpackBunyanLog)
 }
 
 const anyValidConnection = (options: appinsightOptions) =>

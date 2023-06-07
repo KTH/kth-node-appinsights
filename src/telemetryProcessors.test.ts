@@ -1,6 +1,6 @@
 import { Contracts } from 'applicationinsights'
 
-import { userAgentOnRequest } from './telemetryProcessors'
+import { userAgentOnRequest, unpackBunyanLog } from './telemetryProcessors'
 
 const requestWithHeaders = (headers: any) => ({
   get: jest.fn((name: string) => headers[name]),
@@ -64,6 +64,63 @@ describe('Telemetry procesors', () => {
 
       const callResult = userAgentOnRequest(envelope, context)
       expect(callResult).toBe(true)
+    })
+  })
+  describe('Unpack bunyan logs', () => {
+    it('replaces whole message object with content from msg field', () => {
+      const message = { msg: 'keep just this', level: 30, name: 'test-app' }
+      const envelope = {
+        data: {
+          baseType: 'MessageData',
+          baseData: { message: JSON.stringify(message) },
+        },
+      } as unknown as Contracts.EnvelopeTelemetry
+      unpackBunyanLog(envelope)
+      expect(envelope.data.baseData?.message).toEqual('keep just this')
+    })
+    it('leaves message untouched if message lacks "msg" field', () => {
+      const message = { level: 30, name: 'test-app' }
+      const envelope = {
+        data: {
+          baseType: 'MessageData',
+          baseData: { message: JSON.stringify(message) },
+        },
+      } as unknown as Contracts.EnvelopeTelemetry
+      unpackBunyanLog(envelope)
+      expect(envelope.data.baseData?.message).toEqual('{"level":30,"name":"test-app"}')
+    })
+    it('leaves message untouched if message lacks "level" field', () => {
+      const message = { msg: 'keep just this', name: 'test-app' }
+      const envelope = {
+        data: {
+          baseType: 'MessageData',
+          baseData: { message: JSON.stringify(message) },
+        },
+      } as unknown as Contracts.EnvelopeTelemetry
+      unpackBunyanLog(envelope)
+      expect(envelope.data.baseData?.message).toEqual('{"msg":"keep just this","name":"test-app"}')
+    })
+    it('leaves message untouched if message lacks "name" field', () => {
+      const message = { msg: 'keep just this', level: 30 }
+      const envelope = {
+        data: {
+          baseType: 'MessageData',
+          baseData: { message: JSON.stringify(message) },
+        },
+      } as unknown as Contracts.EnvelopeTelemetry
+      unpackBunyanLog(envelope)
+      expect(envelope.data.baseData?.message).toEqual('{"msg":"keep just this","level":30}')
+    })
+    it('leaves message untouched if processor fails', () => {
+      const message = new Error('this is not json parsable')
+      const envelope = {
+        data: {
+          baseType: 'MessageData',
+          baseData: { message },
+        },
+      } as unknown as Contracts.EnvelopeTelemetry
+      unpackBunyanLog(envelope)
+      expect(envelope.data.baseData?.message).toEqual(message)
     })
   })
 })

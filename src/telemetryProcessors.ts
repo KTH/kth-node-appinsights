@@ -18,3 +18,22 @@ export const userAgentOnRequest = (envelope: appInsights.Contracts.EnvelopeTelem
   }
   return true
 }
+
+// Bynyan messages (used by @kth/log) are structured like { name: "my-app", level: 30, msg: "the important part" }
+// This keeps only the "msg" field, as the rest of the data is duplicated by applicationinsights
+export const unpackBunyanLog = (envelope: appInsights.Contracts.EnvelopeTelemetry) => {
+  if (envelope.data?.baseType === 'MessageData') {
+    try {
+      if (!envelope.data.baseData?.message) return true
+
+      const originalMessage = JSON.parse(envelope.data.baseData?.message || '')
+
+      if (originalMessage.msg && originalMessage.name && originalMessage.level) {
+        envelope.data.baseData.message = originalMessage.msg
+      }
+    } catch (e) {
+      return true
+    }
+  }
+  return true
+}
