@@ -33,6 +33,7 @@
     "prepare": "if [ -f ./node_modules/.bin/husky ]; then husky install; fi"
   },
   "dependencies": {
+    "@opentelemetry/api": "^1.4.1",
     "applicationinsights": "^2.7.0"
   },
   "devDependencies": {
