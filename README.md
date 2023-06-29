@@ -13,14 +13,15 @@ To get full tracking, this package should be initialized as soon as possible in 
 import { KthAppinsights } from '@kth/appinsights'
 
 KthAppinsights.init({ name: 'app-name' })
-``` 
+```
 
 Options
+
 ```typescript
 type appinsightOptions = {
-  name?: string 				// Optional. Name of the application
+  name?: string // Optional. Name of the application
 }
-``` 
+```
 
 ## Features
 
@@ -34,7 +35,20 @@ If a request has the `user-agent` header set, it will be saved in the custom pro
 
 ### Unpack Bunyan messages
 
-Bynyan messages (used by @kth/log) will be desctructured, and only the "msg" field kept, as all other information is duplicated on native data fields.  
+Bynyan messages (used by @kth/log) will be desctructured, and only the "msg" field kept, as all other information is duplicated on native data fields.
 
 Example:  
 `{ name: "my-app", level: 30, msg: "the important part" }` will be reduced to just `"the important part"`.
+
+### Track operations for Agenda jobs
+
+**This is not intended to be used on all agenda jobs. Only use ut when there is an actuall need.**  
+A helper that groups all events in a agenda-jobb in a tracable operation.
+
+Example:
+
+```typescript
+const { AppinsightsUtils } = require('@kth/appinsights')
+
+agenda.define('operation_name', AppinsightsUtils.agendaRequestWrapper('operation_name', jobFunction))
+```
