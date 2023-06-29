@@ -48,7 +48,7 @@ describe('Agenda request tracking', () => {
     const done = jest.fn()
 
     await wrappedOperation(job, done)
-    expect(applicationinsightsMock.startOperation).toHaveBeenCalledWith(mockedSpan)
+    expect(applicationinsightsMock.startOperation).toHaveBeenCalledWith(mockedSpan, expect.any(String))
   })
   it('calls wrapWithCorrelationContext with context from startOperation', async () => {
     const operation = jest.fn()
