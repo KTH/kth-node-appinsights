@@ -125,4 +125,54 @@ describe('Agenda request tracking', () => {
       expect.objectContaining({ duration: 4000, time: startTime })
     )
   })
+  it('marks operation as not successfull if last fail time is same as last run time', async () => {
+    const operation = jest.fn()
+
+    const lastRun = new Date()
+    const lastFail = lastRun
+
+    const wrappedOperation = agendaRequestWrapper('JobName', operation)
+    const job = { attrs: { failedAt: lastFail, lastFinishedAt: lastRun } }
+    const done = jest.fn()
+
+    await wrappedOperation(job, done)
+    expect(applicationinsightsMock.defaultClient.trackRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: false,
+      })
+    )
+  })
+  it('marks operation as successfull if last fail time differs from last run time', async () => {
+    const operation = jest.fn()
+
+    const lastRun = new Date()
+    const lastFail = new Date(Date.now() - 1000)
+
+    const wrappedOperation = agendaRequestWrapper('JobName', operation)
+    const job = { attrs: { failedAt: lastFail, lastFinishedAt: lastRun } }
+    const done = jest.fn()
+
+    await wrappedOperation(job, done)
+    expect(applicationinsightsMock.defaultClient.trackRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: true,
+      })
+    )
+  })
+  it('marks operation as successfull if last fail time is missing', async () => {
+    const operation = jest.fn()
+
+    const lastRun = new Date()
+
+    const wrappedOperation = agendaRequestWrapper('JobName', operation)
+    const job = { attrs: { lastFinishedAt_: lastRun } }
+    const done = jest.fn()
+
+    await wrappedOperation(job, done)
+    expect(applicationinsightsMock.defaultClient.trackRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: true,
+      })
+    )
+  })
 })
