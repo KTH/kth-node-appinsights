@@ -1,6 +1,6 @@
 import { Contracts } from 'applicationinsights'
 
-import { userAgentOnRequest, unpackBunyanLog } from './telemetryProcessors'
+import { userAgentOnRequest, unpackBunyanLog, skipStaticRequests } from './telemetryProcessors'
 
 const requestWithHeaders = (headers: any) => ({
   get: jest.fn((name: string) => headers[name]),
@@ -121,6 +121,71 @@ describe('Telemetry procesors', () => {
       } as unknown as Contracts.EnvelopeTelemetry
       unpackBunyanLog(envelope)
       expect(envelope.data.baseData?.message).toEqual(message)
+    })
+  })
+  describe('Ignore requests to static resources', () => {
+    it('ignores GET request when url has /static/', () => {
+      const envelope = {
+        data: {
+          baseType: 'RequestData',
+          baseData: {
+            name: 'GET <any_request_name>',
+            url: 'my-server/endpoint/static/media',
+          },
+        },
+      } as unknown as Contracts.EnvelopeTelemetry
+      const callResult = skipStaticRequests(envelope)
+      expect(callResult).toBe(false)
+    })
+    it('allows the word "static" in url', () => {
+      const envelope = {
+        data: {
+          baseType: 'RequestData',
+          baseData: {
+            name: 'GET <any_request_name>',
+            url: 'my-server/profile/static-man/publications',
+          },
+        },
+      } as unknown as Contracts.EnvelopeTelemetry
+      const callResult = skipStaticRequests(envelope)
+      expect(callResult).toBe(true)
+    })
+    it('allows url to end with "static/', () => {
+      const envelope = {
+        data: {
+          baseType: 'RequestData',
+          baseData: {
+            name: 'GET <any_request_name>',
+            url: 'my-server/endpoint/static/',
+          },
+        },
+      } as unknown as Contracts.EnvelopeTelemetry
+      const callResult = skipStaticRequests(envelope)
+      expect(callResult).toBe(true)
+    })
+    it('allows a non-GET request when url has /static/', () => {
+      const envelope = {
+        data: {
+          baseType: 'RequestData',
+          baseData: {
+            name: 'POST <any_request_name>',
+            url: 'my-server/endpoint/static/media',
+          },
+        },
+      } as unknown as Contracts.EnvelopeTelemetry
+      const callResult = skipStaticRequests(envelope)
+      expect(callResult).toBe(true)
+    })
+    it('returns true if processor fails', () => {
+      const name = new Error('this is not a valid string')
+      const envelope = {
+        data: {
+          baseType: 'RequestData',
+          baseData: { name, url: 'my-server/endpoint/static/media' },
+        },
+      } as unknown as Contracts.EnvelopeTelemetry
+      const callResult = skipStaticRequests(envelope)
+      expect(callResult).toBe(true)
     })
   })
 })
