@@ -1,6 +1,6 @@
 import { Contracts } from 'applicationinsights'
 
-import { userAgentOnRequest, unpackBunyanLog, skipStaticRequests } from './telemetryProcessors'
+import { userAgentOnRequest, unpackBunyanLog, skipStaticRequests, skipMonitorRequests } from './telemetryProcessors'
 
 const requestWithHeaders = (headers: any) => ({
   get: jest.fn((name: string) => headers[name]),
@@ -185,6 +185,58 @@ describe('Telemetry procesors', () => {
         },
       } as unknown as Contracts.EnvelopeTelemetry
       const callResult = skipStaticRequests(envelope)
+      expect(callResult).toBe(true)
+    })
+  })
+  describe.only('Ignore _monitor requests', () => {
+    it('ignores GET request containing /_monitor', () => {
+      const envelope = {
+        data: {
+          baseType: 'RequestData',
+          baseData: {
+            name: 'GET <any_request_name>',
+            url: 'my-server/endpoint/_monitor',
+          },
+        },
+      } as unknown as Contracts.EnvelopeTelemetry
+      const callResult = skipMonitorRequests(envelope)
+      expect(callResult).toBe(false)
+    })
+    it('ignores /_monitor request with queryparams', () => {
+      const envelope = {
+        data: {
+          baseType: 'RequestData',
+          baseData: {
+            name: 'GET <any_request_name>',
+            url: 'my-server/endpoint/_monitor?query=my-param',
+          },
+        },
+      } as unknown as Contracts.EnvelopeTelemetry
+      const callResult = skipMonitorRequests(envelope)
+      expect(callResult).toBe(false)
+    })
+    it('allows a non-GET request containing /_monitor', () => {
+      const envelope = {
+        data: {
+          baseType: 'RequestData',
+          baseData: {
+            name: 'POST <any_request_name>',
+            url: 'my-server/endpoint/_monitor',
+          },
+        },
+      } as unknown as Contracts.EnvelopeTelemetry
+      const callResult = skipMonitorRequests(envelope)
+      expect(callResult).toBe(true)
+    })
+    it('returns true if processor fails', () => {
+      const name = new Error('this is not a valid string')
+      const envelope = {
+        data: {
+          baseType: 'RequestData',
+          baseData: { name, url: 'my-server/endpoint/_monitor' },
+        },
+      } as unknown as Contracts.EnvelopeTelemetry
+      const callResult = skipMonitorRequests(envelope)
       expect(callResult).toBe(true)
     })
   })
