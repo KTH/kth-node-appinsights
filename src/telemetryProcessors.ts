@@ -37,3 +37,35 @@ export const unpackBunyanLog = (envelope: appInsights.Contracts.EnvelopeTelemetr
   }
   return true
 }
+
+// Ignore logging any requests to static resources
+// If url matches /<something>/static/<something>
+export const skipStaticRequests = (envelope: appInsights.Contracts.EnvelopeTelemetry) => {
+  try {
+    if (envelope.data?.baseType !== 'RequestData') return true
+    if (!envelope.data.baseData?.url) return true
+
+    if (envelope.data.baseData?.name.includes('GET ') && /\/[\w\-.]+\/static\/\w+/.test(envelope.data.baseData?.url)) {
+      return false
+    }
+  } catch (e) {
+    return true
+  }
+  return true
+}
+
+// Ignore logging any monitor requests
+// If url matches /<something>/_monitor
+export const skipMonitorRequests = (envelope: appInsights.Contracts.EnvelopeTelemetry) => {
+  try {
+    if (envelope.data?.baseType !== 'RequestData') return true
+    if (!envelope.data.baseData?.url) return true
+
+    if (envelope.data.baseData?.name.includes('GET ') && envelope.data.baseData?.url.includes('/_monitor')) {
+      return false
+    }
+  } catch (e) {
+    return true
+  }
+  return true
+}
