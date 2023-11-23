@@ -124,7 +124,7 @@ describe('Telemetry procesors', () => {
     })
   })
   describe('Ignore requests to static resources', () => {
-    it('ignores GET request when url has /static/', () => {
+    it('does not log GET request when url has /static/', () => {
       const envelope = {
         data: {
           baseType: 'RequestData',
@@ -137,7 +137,7 @@ describe('Telemetry procesors', () => {
       const callResult = skipStaticRequests(envelope)
       expect(callResult).toBe(false)
     })
-    it('allows the word "static" in url', () => {
+    it('logs request that has the word "static" in the url', () => {
       const envelope = {
         data: {
           baseType: 'RequestData',
@@ -150,7 +150,7 @@ describe('Telemetry procesors', () => {
       const callResult = skipStaticRequests(envelope)
       expect(callResult).toBe(true)
     })
-    it('allows url to end with "static/', () => {
+    it('logs requests where url ends with "static/', () => {
       const envelope = {
         data: {
           baseType: 'RequestData',
@@ -163,7 +163,7 @@ describe('Telemetry procesors', () => {
       const callResult = skipStaticRequests(envelope)
       expect(callResult).toBe(true)
     })
-    it('allows a non-GET request when url has /static/', () => {
+    it('logs a non-GET request when url has /static/', () => {
       const envelope = {
         data: {
           baseType: 'RequestData',
@@ -176,7 +176,7 @@ describe('Telemetry procesors', () => {
       const callResult = skipStaticRequests(envelope)
       expect(callResult).toBe(true)
     })
-    it('returns true if processor fails', () => {
+    it('logs if processor fails', () => {
       const name = new Error('this is not a valid string')
       const envelope = {
         data: {
@@ -188,8 +188,8 @@ describe('Telemetry procesors', () => {
       expect(callResult).toBe(true)
     })
   })
-  describe.only('Ignore _monitor requests', () => {
-    it('ignores GET request containing /_monitor', () => {
+  describe('Ignore _monitor requests', () => {
+    it('does not log GET request containing /_monitor', () => {
       const envelope = {
         data: {
           baseType: 'RequestData',
@@ -202,7 +202,7 @@ describe('Telemetry procesors', () => {
       const callResult = skipMonitorRequests(envelope)
       expect(callResult).toBe(false)
     })
-    it('ignores /_monitor request with queryparams', () => {
+    it('does not log /_monitor request with queryparams', () => {
       const envelope = {
         data: {
           baseType: 'RequestData',
@@ -215,7 +215,7 @@ describe('Telemetry procesors', () => {
       const callResult = skipMonitorRequests(envelope)
       expect(callResult).toBe(false)
     })
-    it('allows a non-GET request containing /_monitor', () => {
+    it('logs a non-GET request containing /_monitor', () => {
       const envelope = {
         data: {
           baseType: 'RequestData',
@@ -228,7 +228,7 @@ describe('Telemetry procesors', () => {
       const callResult = skipMonitorRequests(envelope)
       expect(callResult).toBe(true)
     })
-    it('returns true if processor fails', () => {
+    it('logs if processor fails', () => {
       const name = new Error('this is not a valid string')
       const envelope = {
         data: {
