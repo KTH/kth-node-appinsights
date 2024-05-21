@@ -20,6 +20,7 @@ Options
 ```typescript
 type appinsightOptions = {
   name?: string // Optional. Name of the application
+  samplingPercentage?: number // Optional. Reduce the amount of telemetry collected
 }
 ```
 
@@ -39,6 +40,11 @@ Bynyan messages (used by @kth/log) will be desctructured, and only the "msg" fie
 
 Example:  
 `{ name: "my-app", level: 30, msg: "the important part" }` will be reduced to just `"the important part"`.
+
+### Telemetry Sampling
+
+Used to reduce the amount of telemetry collected, primary used to reduce cost.
+Enable with option `samplingPercentage`. Default is 100% = everything is collected.
 
 ### Track operations for Agenda jobs
 

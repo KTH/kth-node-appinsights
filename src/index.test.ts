@@ -17,6 +17,7 @@ describe('init applicationinsights', () => {
     process.env.APPLICATIONINSIGHTS_CONNECTION_STRING = 'default-connection-string'
 
     applicationinsightsMock.defaultClient.context.tags = {}
+    applicationinsightsMock.defaultClient.config = {}
 
     mockOs.hostname.mockReturnValue('host1234')
   })
@@ -93,6 +94,18 @@ describe('init applicationinsights', () => {
       KthAppinsights.init({ name: 'my_application' })
 
       expect(Object.keys(applicationinsightsMock.defaultClient.context.tags)).not.toContain('ai.cloud.roleInstance')
+    })
+  })
+  describe('sampling', () => {
+    beforeEach(() => {})
+    it('sets if "samplingPercentage" is included in options', () => {
+      KthAppinsights.init({ samplingPercentage: 50 })
+
+      expect(applicationinsightsMock.defaultClient.config.samplingPercentage).toBe(50)
+    })
+    it('does not set without "samplingPercentage" in options', () => {
+      KthAppinsights.init({})
+      expect(Object.keys(applicationinsightsMock.defaultClient.config)).not.toContain('samplingPercentage')
     })
   })
 })
