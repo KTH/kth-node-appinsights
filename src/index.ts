@@ -2,6 +2,7 @@ type appinsightOptions = {
   name?: string
   connectionString?: string
   instrumentationKey?: string
+  samplingPercentage?: number
 }
 
 import * as appInsights from 'applicationinsights'
@@ -20,6 +21,10 @@ const init = (options: appinsightOptions) => {
   if (options.name) {
     setRoleName(options.name)
     setInstanceName(options.name)
+  }
+
+  if (options.samplingPercentage) {
+    appInsights.defaultClient.config.samplingPercentage = options.samplingPercentage
   }
 
   appInsights.defaultClient.addTelemetryProcessor(userAgentOnRequest)
