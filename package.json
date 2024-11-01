@@ -34,7 +34,7 @@
   },
   "dependencies": {
     "@opentelemetry/api": "^1.8.0",
-    "applicationinsights": "^2.9.5"
+    "applicationinsights": "^3.4.0"
   },
   "devDependencies": {
     "@kth/eslint-config-kth": "^3.4.0",
