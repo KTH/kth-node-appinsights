@@ -47,7 +47,7 @@ describe('init applicationinsights', () => {
       expect(applicationinsightsMock.setup).toHaveBeenCalledWith()
       expect(applicationinsightsMock.start).toHaveBeenCalled()
     })
-    it('passes nothing when config are missing and env:APPLICATIONINSIGHTS_CONNECTION_STRING exists', () => {
+    it('passes nothing when config are missing and env:APPINSIGHTS_INSTRUMENTATIONKEY exists', () => {
       process.env.APPINSIGHTS_INSTRUMENTATIONKEY = 'my-env-instrumentation-key'
       KthAppinsights.init({})
       expect(applicationinsightsMock.setup).toHaveBeenCalledWith()
