@@ -1,6 +1,6 @@
 version: 2
 updates:
-  - package-ecosystem: npm
+  - package-ecosystem: 'npm'
     directory: '/'
     schedule:
       interval: monthly
@@ -12,5 +12,5 @@ updates:
     ignore:
       - dependency-name: 'eslint'
         versions: ['9.x']
-    - dependency-name: 'applicationinsights'
+      - dependency-name: 'applicationinsights'
         versions: ['3.x']
