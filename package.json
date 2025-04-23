@@ -30,7 +30,7 @@
     "test:coverage": "rm -rf ./coverage && jest --collectCoverage --detectOpenHandles",
     "build": "./build.sh",
     "build:watch": "tsc --watch",
-    "prepare": "if [ -f ./node_modules/.bin/husky ]; then husky install; fi"
+    "prepare": "husky"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
@@ -41,15 +41,14 @@
     "@types/jest": "^29.5.14",
     "@types/node": "^20.17.30",
     "eslint": "^8.57.1",
-    "husky": "^8.0.3",
+    "husky": "^9.1.7",
     "jest": "^29.7.0",
-    "prettier": "^2.8.8",
-    "pretty-quick": "^3.3.1",
+    "lint-staged": "^15.5.1",
+    "prettier": "^3.5.3",
     "ts-jest": "^29.3.2",
     "typescript": "^5.8.3"
   },
   "prettier": {
-    "//": "configuration version 2020-04-10 - might also reside in .prettierrc.json",
     "arrowParens": "avoid",
     "printWidth": 120,
     "semi": false,
