@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.0] - 2025-07-08
+
+### Added
+
+- Logs the name of the API-key used on requests
+
 ## [0.4.0] - 2024-05-21
 
 ### Added
