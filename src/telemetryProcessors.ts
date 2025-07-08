@@ -2,8 +2,6 @@ import * as appInsights from 'applicationinsights'
 
 export const userAgentOnRequest = (envelope: appInsights.Contracts.EnvelopeTelemetry, correlationContext: any = {}) => {
   if (envelope.data?.baseType === 'RequestData') {
-    const code = correlationContext?.['http.ServerResponse']?.statusCode
-
     const userAgent = correlationContext?.['http.ServerRequest']?.get?.('user-agent')
     if (userAgent) {
       if (!envelope.data.baseData) {
@@ -14,6 +12,29 @@ export const userAgentOnRequest = (envelope: appInsights.Contracts.EnvelopeTelem
       }
 
       envelope.data.baseData.properties.user_agent = userAgent
+    }
+  }
+  return true
+}
+
+// Logs saved name of the API-key on request, if it exists
+// Keys are handled by kth-node-api-key-strategy package
+export const apiKeyNameOnRequest = (
+  envelope: appInsights.Contracts.EnvelopeTelemetry,
+  correlationContext: any = {}
+) => {
+  if (envelope.data?.baseType === 'RequestData') {
+    const keyName = correlationContext?.['http.ServerRequest']?.apiClient?.name
+
+    if (keyName) {
+      if (!envelope.data.baseData) {
+        envelope.data.baseData = {}
+      }
+      if (!envelope.data.baseData.properties) {
+        envelope.data.baseData.properties = {}
+      }
+
+      envelope.data.baseData.properties.api_key_name = keyName
     }
   }
   return true

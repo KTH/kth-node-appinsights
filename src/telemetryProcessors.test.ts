@@ -1,6 +1,12 @@
 import { Contracts } from 'applicationinsights'
 
-import { userAgentOnRequest, unpackBunyanLog, skipStaticRequests, skipMonitorRequests } from './telemetryProcessors'
+import {
+  userAgentOnRequest,
+  apiKeyNameOnRequest,
+  unpackBunyanLog,
+  skipStaticRequests,
+  skipMonitorRequests,
+} from './telemetryProcessors'
 
 const requestWithHeaders = (headers: any) => ({
   get: jest.fn((name: string) => headers[name]),
@@ -63,6 +69,65 @@ describe('Telemetry procesors', () => {
       const context = {}
 
       const callResult = userAgentOnRequest(envelope, context)
+      expect(callResult).toBe(true)
+    })
+  })
+  describe('Save api key name on Requests', () => {
+    it('sets api_key_name if telemetry is Requests and apiClient information exists', () => {
+      const envelope = { data: { baseType: 'RequestData' } } as Contracts.EnvelopeTelemetry
+      const context = {
+        'http.ServerRequest': { apiClient: { name: 'test_key' } },
+      }
+      apiKeyNameOnRequest(envelope, context)
+      expect(envelope.data.baseData?.properties?.api_key_name).toEqual('test_key')
+    })
+    it('does not set api_key_name if telemetry is not a Requests', () => {
+      const envelope = { data: { baseType: 'OtherTelemetry' } } as Contracts.EnvelopeTelemetry
+      const context = {
+        'http.ServerRequest': { apiClient: { name: 'test_key' } },
+      }
+      apiKeyNameOnRequest(envelope, context)
+      expect(envelope.data.baseData?.properties?.api_key_name).toEqual(undefined)
+    })
+    it('does not set api_key_name if apiClient lacks name', () => {
+      const envelope = { data: { baseType: 'RequestData' } } as Contracts.EnvelopeTelemetry
+      const context = {
+        'http.ServerRequest': { apiClient: { other: 'other data' } },
+      }
+      apiKeyNameOnRequest(envelope, context)
+      expect(envelope.data.baseData?.properties?.api_key_name).toEqual(undefined)
+    })
+    it('does not overwrite existing properties when setting api_key_name', () => {
+      const envelope = {
+        data: {
+          baseType: 'RequestData',
+          baseData: { otherData: 'keep_me', properties: { otherProperty: 'keep_me_too' } },
+        },
+      } as unknown as Contracts.EnvelopeTelemetry
+      const context = {
+        'http.ServerRequest': { apiClient: { name: 'test_key' } },
+      }
+      apiKeyNameOnRequest(envelope, context)
+      expect(envelope.data.baseData?.otherData).toEqual('keep_me')
+      expect(envelope.data.baseData?.properties?.otherProperty).toEqual('keep_me_too')
+    })
+    it('returns true for all types', () => {
+      const envelope = { data: { baseType: 'OtherTelemetry' } } as Contracts.EnvelopeTelemetry
+
+      const callResult = apiKeyNameOnRequest(envelope)
+      expect(callResult).toBe(true)
+    })
+    it('returns true when envelope is empty', () => {
+      const envelope = {} as Contracts.EnvelopeTelemetry
+
+      const callResult = apiKeyNameOnRequest(envelope)
+      expect(callResult).toBe(true)
+    })
+    it('returns true when context is empty', () => {
+      const envelope = { data: { baseType: 'RequestData' } } as Contracts.EnvelopeTelemetry
+      const context = {}
+
+      const callResult = apiKeyNameOnRequest(envelope, context)
       expect(callResult).toBe(true)
     })
   })
