@@ -10,7 +10,13 @@ import * as os from 'os'
 
 export * as AppinsightsUtils from './utils'
 
-import { userAgentOnRequest, unpackBunyanLog, skipStaticRequests, skipMonitorRequests } from './telemetryProcessors'
+import {
+  userAgentOnRequest,
+  apiKeyNameOnRequest,
+  unpackBunyanLog,
+  skipStaticRequests,
+  skipMonitorRequests,
+} from './telemetryProcessors'
 
 const init = (options: appinsightOptions) => {
   if (!anyValidConnection(options)) {
@@ -28,6 +34,7 @@ const init = (options: appinsightOptions) => {
   }
 
   appInsights.defaultClient.addTelemetryProcessor(userAgentOnRequest)
+  appInsights.defaultClient.addTelemetryProcessor(apiKeyNameOnRequest)
   appInsights.defaultClient.addTelemetryProcessor(unpackBunyanLog)
   appInsights.defaultClient.addTelemetryProcessor(skipStaticRequests)
   appInsights.defaultClient.addTelemetryProcessor(skipMonitorRequests)
