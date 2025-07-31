@@ -4,7 +4,7 @@ import {
   userAgentOnRequest,
   apiKeyNameOnRequest,
   unpackBunyanLog,
-  skipStaticRequests,
+  skipResourceRequests,
   skipMonitorRequests,
 } from './telemetryProcessors'
 
@@ -199,10 +199,23 @@ describe('Telemetry procesors', () => {
           },
         },
       } as unknown as Contracts.EnvelopeTelemetry
-      const callResult = skipStaticRequests(envelope)
+      const callResult = skipResourceRequests(envelope)
       expect(callResult).toBe(false)
     })
-    it('logs request that has the word "static" in the url', () => {
+    it('does not log GET request when url has /assets/', () => {
+      const envelope = {
+        data: {
+          baseType: 'RequestData',
+          baseData: {
+            name: 'GET <any_request_name>',
+            url: 'my-server/endpoint/assets/media',
+          },
+        },
+      } as unknown as Contracts.EnvelopeTelemetry
+      const callResult = skipResourceRequests(envelope)
+      expect(callResult).toBe(false)
+    })
+    it('logs request that happens to have the word "static" in the url', () => {
       const envelope = {
         data: {
           baseType: 'RequestData',
@@ -212,7 +225,20 @@ describe('Telemetry procesors', () => {
           },
         },
       } as unknown as Contracts.EnvelopeTelemetry
-      const callResult = skipStaticRequests(envelope)
+      const callResult = skipResourceRequests(envelope)
+      expect(callResult).toBe(true)
+    })
+    it('logs request that happens to have the word "assets" in the url', () => {
+      const envelope = {
+        data: {
+          baseType: 'RequestData',
+          baseData: {
+            name: 'GET <any_request_name>',
+            url: 'my-server/profile/assets-man/publications',
+          },
+        },
+      } as unknown as Contracts.EnvelopeTelemetry
+      const callResult = skipResourceRequests(envelope)
       expect(callResult).toBe(true)
     })
     it('logs requests where url ends with "static/', () => {
@@ -225,7 +251,20 @@ describe('Telemetry procesors', () => {
           },
         },
       } as unknown as Contracts.EnvelopeTelemetry
-      const callResult = skipStaticRequests(envelope)
+      const callResult = skipResourceRequests(envelope)
+      expect(callResult).toBe(true)
+    })
+    it('logs requests where url ends with "assets/', () => {
+      const envelope = {
+        data: {
+          baseType: 'RequestData',
+          baseData: {
+            name: 'GET <any_request_name>',
+            url: 'my-server/endpoint/assets/',
+          },
+        },
+      } as unknown as Contracts.EnvelopeTelemetry
+      const callResult = skipResourceRequests(envelope)
       expect(callResult).toBe(true)
     })
     it('logs a non-GET request when url has /static/', () => {
@@ -238,7 +277,20 @@ describe('Telemetry procesors', () => {
           },
         },
       } as unknown as Contracts.EnvelopeTelemetry
-      const callResult = skipStaticRequests(envelope)
+      const callResult = skipResourceRequests(envelope)
+      expect(callResult).toBe(true)
+    })
+    it('logs a non-GET request when url has /assets/', () => {
+      const envelope = {
+        data: {
+          baseType: 'RequestData',
+          baseData: {
+            name: 'POST <any_request_name>',
+            url: 'my-server/endpoint/assets/media',
+          },
+        },
+      } as unknown as Contracts.EnvelopeTelemetry
+      const callResult = skipResourceRequests(envelope)
       expect(callResult).toBe(true)
     })
     it('logs if processor fails', () => {
@@ -249,7 +301,7 @@ describe('Telemetry procesors', () => {
           baseData: { name, url: 'my-server/endpoint/static/media' },
         },
       } as unknown as Contracts.EnvelopeTelemetry
-      const callResult = skipStaticRequests(envelope)
+      const callResult = skipResourceRequests(envelope)
       expect(callResult).toBe(true)
     })
   })

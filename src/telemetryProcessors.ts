@@ -59,14 +59,18 @@ export const unpackBunyanLog = (envelope: appInsights.Contracts.EnvelopeTelemetr
   return true
 }
 
-// Ignore logging any requests to static resources
+// Ignore logging any requests to static resources and assets
 // If url matches /<something>/static/<something>
-export const skipStaticRequests = (envelope: appInsights.Contracts.EnvelopeTelemetry) => {
+// If url matches /<something>/assets/<something>
+export const skipResourceRequests = (envelope: appInsights.Contracts.EnvelopeTelemetry) => {
   try {
     if (envelope.data?.baseType !== 'RequestData') return true
     if (!envelope.data.baseData?.url) return true
 
     if (envelope.data.baseData?.name.includes('GET ') && /\/[\w\-.]+\/static\/\w+/.test(envelope.data.baseData?.url)) {
+      return false
+    }
+    if (envelope.data.baseData?.name.includes('GET ') && /\/[\w\-.]+\/assets\/\w+/.test(envelope.data.baseData?.url)) {
       return false
     }
   } catch (e) {
