@@ -14,7 +14,7 @@ import {
   userAgentOnRequest,
   apiKeyNameOnRequest,
   unpackBunyanLog,
-  skipStaticRequests,
+  skipResourceRequests,
   skipMonitorRequests,
 } from './telemetryProcessors'
 
@@ -36,7 +36,7 @@ const init = (options: appinsightOptions) => {
   appInsights.defaultClient.addTelemetryProcessor(userAgentOnRequest)
   appInsights.defaultClient.addTelemetryProcessor(apiKeyNameOnRequest)
   appInsights.defaultClient.addTelemetryProcessor(unpackBunyanLog)
-  appInsights.defaultClient.addTelemetryProcessor(skipStaticRequests)
+  appInsights.defaultClient.addTelemetryProcessor(skipResourceRequests)
   appInsights.defaultClient.addTelemetryProcessor(skipMonitorRequests)
 }
 

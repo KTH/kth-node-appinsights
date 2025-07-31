@@ -62,7 +62,7 @@ export const unpackBunyanLog = (envelope: appInsights.Contracts.EnvelopeTelemetr
 // Ignore logging any requests to static resources and assets
 // If url matches /<something>/static/<something>
 // If url matches /<something>/assets/<something>
-export const skipStaticRequests = (envelope: appInsights.Contracts.EnvelopeTelemetry) => {
+export const skipResourceRequests = (envelope: appInsights.Contracts.EnvelopeTelemetry) => {
   try {
     if (envelope.data?.baseType !== 'RequestData') return true
     if (!envelope.data.baseData?.url) return true
