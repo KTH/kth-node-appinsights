@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.0] - 2025-07-31
+
+### Changed
+
+- Requests to `/assets/` paths is no longer logged.
+
 ## [0.5.0] - 2025-07-08
 
 ### Added
