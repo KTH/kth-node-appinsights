@@ -34,19 +34,19 @@
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
-    "applicationinsights": "^2.9.7"
+    "applicationinsights": "^2.9.8"
   },
   "devDependencies": {
-    "@kth/eslint-config-kth": "^3.6.0",
+    "@kth/eslint-config-kth": "^3.7.0",
     "@types/jest": "^30.0.0",
-    "@types/node": "^22.16.0",
+    "@types/node": "^22.19.13",
     "eslint": "^8.57.1",
     "husky": "^9.1.7",
-    "jest": "^30.0.4",
+    "jest": "^30.2.0",
     "lint-staged": "^15.5.2",
-    "prettier": "^3.6.2",
-    "ts-jest": "^29.4.0",
-    "typescript": "^5.8.3"
+    "prettier": "^3.8.1",
+    "ts-jest": "^29.4.6",
+    "typescript": "^5.9.3"
   },
   "prettier": {
     "arrowParens": "avoid",
