@@ -37,7 +37,7 @@
     "applicationinsights": "^2.9.8"
   },
   "devDependencies": {
-    "@kth/eslint-config-kth": "^3.7.0",
+    "@kth/eslint-config-kth": "^4.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.19.13",
     "eslint": "^8.57.1",
