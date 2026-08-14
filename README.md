@@ -1,6 +1,6 @@
 # @kth/appinsights
 
-A wrapper for the [applicationinsights](https://www.npmjs.com/package/applicationinsights) package.
+A wrapper to send metrics to Azure Application Insights, based on [@azure/monitor-opentelemetry](https://www.npmjs.com/package/@azure/monitor-opentelemetry) package.
 
 This is intended for a standard use-case only. If your app needs more options, please use the core package instead.
 
@@ -34,12 +34,9 @@ The if `name` is passed in the options, it will be used to set "Cloud role name"
 
 If a request has the `user-agent` header set, it will be saved in the custom property `user_agent`.
 
-### Unpack Bunyan messages
+### Bunyan and Winston logs
 
-Bynyan messages (used by @kth/log) will be desctructured, and only the "msg" field kept, as all other information is duplicated on native data fields.
-
-Example:  
-`{ name: "my-app", level: 30, msg: "the important part" }` will be reduced to just `"the important part"`.
+Log records from Bunyan (used by @kth/log) and Winston are automatically collected as OpenTelemetry logs.
 
 ### Telemetry Sampling
 

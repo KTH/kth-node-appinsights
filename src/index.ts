@@ -5,60 +5,69 @@ type appinsightOptions = {
   samplingPercentage?: number
 }
 
-import * as appInsights from 'applicationinsights'
+import { useAzureMonitor, type AzureMonitorOpenTelemetryOptions } from '@azure/monitor-opentelemetry'
+import { resourceFromAttributes } from '@opentelemetry/resources'
+import type { HttpInstrumentationConfig } from '@opentelemetry/instrumentation-http'
 import * as os from 'os'
 
 export * as AppinsightsUtils from './utils'
 
-import {
-  userAgentOnRequest,
-  apiKeyNameOnRequest,
-  unpackBunyanLog,
-  skipResourceRequests,
-  skipMonitorRequests,
-} from './telemetryProcessors'
+import { applyCustomAttributesOnSpan, ignoreIncomingRequestHook } from './telemetryProcessors'
+
+const httpInstrumentationConfig: HttpInstrumentationConfig = {
+  enabled: true,
+  applyCustomAttributesOnSpan,
+  ignoreIncomingRequestHook,
+}
 
 const init = (options: appinsightOptions) => {
-  if (!anyValidConnection(options)) {
+  const connectionString = resolveConnectionString(options)
+  if (!connectionString) {
     return
   }
-  setupClient(options).setAutoCollectConsole(true, false).start()
+
+  const azureMonitorOptions: AzureMonitorOpenTelemetryOptions = {
+    azureMonitorExporterOptions: { connectionString },
+    instrumentationOptions: {
+      // Picks up logs from bunyan and winston, but not raw console.log's
+      bunyan: { enabled: true },
+      winston: { enabled: true },
+      http: httpInstrumentationConfig,
+    },
+  }
 
   if (options.name) {
-    setRoleName(options.name)
-    setInstanceName(options.name)
+    azureMonitorOptions.resource = buildResource(options.name)
   }
 
-  if (options.samplingPercentage) {
-    appInsights.defaultClient.config.samplingPercentage = options.samplingPercentage
+  if (options.samplingPercentage != null) {
+    azureMonitorOptions.samplingRatio = options.samplingPercentage / 100
   }
 
-  appInsights.defaultClient.addTelemetryProcessor(userAgentOnRequest)
-  appInsights.defaultClient.addTelemetryProcessor(apiKeyNameOnRequest)
-  appInsights.defaultClient.addTelemetryProcessor(unpackBunyanLog)
-  appInsights.defaultClient.addTelemetryProcessor(skipResourceRequests)
-  appInsights.defaultClient.addTelemetryProcessor(skipMonitorRequests)
+  useAzureMonitor(azureMonitorOptions)
 }
 
-const anyValidConnection = (options: appinsightOptions) =>
-  process.env.APPLICATIONINSIGHTS_CONNECTION_STRING ||
-  process.env.APPINSIGHTS_INSTRUMENTATIONKEY ||
-  options.connectionString ||
-  options.instrumentationKey
-
-const setupClient = (options: appinsightOptions) =>
-  options.connectionString || options.instrumentationKey
-    ? appInsights.setup(options.connectionString || options.instrumentationKey)
-    : appInsights.setup()
-
-const setRoleName = (name: string) => {
-  appInsights.defaultClient.context.tags['ai.cloud.role'] = name
+const resolveConnectionString = (options: appinsightOptions): string | undefined => {
+  if (options.connectionString) return options.connectionString
+  if (options.instrumentationKey) return `InstrumentationKey=${options.instrumentationKey}`
+  if (process.env.APPLICATIONINSIGHTS_CONNECTION_STRING) return process.env.APPLICATIONINSIGHTS_CONNECTION_STRING
+  if (process.env.APPINSIGHTS_INSTRUMENTATIONKEY)
+    return `InstrumentationKey=${process.env.APPINSIGHTS_INSTRUMENTATIONKEY}`
+  return undefined
 }
-const setInstanceName = (name: string) => {
-  if (!os.hostname?.()) {
-    return
+
+// Cloud Role Name uses the `service.name` resource attribute, and Cloud Role
+// Instance uses `service.instance.id` - see
+// https://learn.microsoft.com/azure/azure-monitor/app/opentelemetry-configuration#set-the-cloud-role-name-and-the-cloud-role-instance
+const buildResource = (name: string) => {
+  const attributes: Record<string, string> = { 'service.name': name }
+
+  const hostname = os.hostname?.()
+  if (hostname) {
+    attributes['service.instance.id'] = `${name}-${hostname}`
   }
-  appInsights.defaultClient.context.tags['ai.cloud.roleInstance'] = `${name}-${os.hostname()}`
+
+  return resourceFromAttributes(attributes)
 }
 
 export const KthAppinsights = { init }

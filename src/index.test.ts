@@ -1,13 +1,10 @@
-const applicationinsightsMock: any = {
-  setup: jest.fn(() => applicationinsightsMock),
-  start: jest.fn(() => applicationinsightsMock),
-  setAutoCollectConsole: jest.fn(() => applicationinsightsMock),
-  defaultClient: { context: { tags: {} }, addTelemetryProcessor: jest.fn() },
-}
+const mockUseAzureMonitor = jest.fn()
+jest.mock('@azure/monitor-opentelemetry', () => ({ useAzureMonitor: mockUseAzureMonitor }))
+
+const mockResourceFromAttributes = jest.fn((attributes: Record<string, string>) => ({ attributes }))
+jest.mock('@opentelemetry/resources', () => ({ resourceFromAttributes: mockResourceFromAttributes }))
 
 const mockOs = { hostname: jest.fn() }
-
-jest.mock('applicationinsights', () => applicationinsightsMock)
 jest.mock('os', () => mockOs)
 
 import { KthAppinsights } from './index'
@@ -15,12 +12,10 @@ import { KthAppinsights } from './index'
 describe('init applicationinsights', () => {
   beforeEach(() => {
     process.env.APPLICATIONINSIGHTS_CONNECTION_STRING = 'default-connection-string'
-
-    applicationinsightsMock.defaultClient.context.tags = {}
-    applicationinsightsMock.defaultClient.config = {}
-
+    delete process.env.APPINSIGHTS_INSTRUMENTATIONKEY
     mockOs.hostname.mockReturnValue('host1234')
   })
+
   describe('use correct credentials', () => {
     beforeEach(() => {
       delete process.env.APPLICATIONINSIGHTS_CONNECTION_STRING
@@ -28,84 +23,108 @@ describe('init applicationinsights', () => {
     })
     it('uses connection string if passed', () => {
       KthAppinsights.init({ connectionString: 'my-connection-string' })
-      expect(applicationinsightsMock.setup).toHaveBeenCalledWith('my-connection-string')
-      expect(applicationinsightsMock.start).toHaveBeenCalled()
+      expect(mockUseAzureMonitor).toHaveBeenCalledWith(
+        expect.objectContaining({ azureMonitorExporterOptions: { connectionString: 'my-connection-string' } })
+      )
     })
-    it('uses instrumentation key if passed', () => {
+    it('builds a connection string from instrumentation key if passed', () => {
       KthAppinsights.init({ instrumentationKey: 'my-instrumentation-key' })
-      expect(applicationinsightsMock.setup).toHaveBeenCalledWith('my-instrumentation-key')
-      expect(applicationinsightsMock.start).toHaveBeenCalled()
+      expect(mockUseAzureMonitor).toHaveBeenCalledWith(
+        expect.objectContaining({
+          azureMonitorExporterOptions: { connectionString: 'InstrumentationKey=my-instrumentation-key' },
+        })
+      )
     })
     it('prioritizes connection string if both are passed', () => {
       KthAppinsights.init({ instrumentationKey: 'my-instrumentation-key', connectionString: 'my-connection-string' })
-      expect(applicationinsightsMock.setup).toHaveBeenCalledWith('my-connection-string')
-      expect(applicationinsightsMock.start).toHaveBeenCalled()
+      expect(mockUseAzureMonitor).toHaveBeenCalledWith(
+        expect.objectContaining({ azureMonitorExporterOptions: { connectionString: 'my-connection-string' } })
+      )
     })
-    it('passes nothing when config are missing and env:APPLICATIONINSIGHTS_CONNECTION_STRING exists', () => {
+    it('uses env:APPLICATIONINSIGHTS_CONNECTION_STRING when config is missing', () => {
       process.env.APPLICATIONINSIGHTS_CONNECTION_STRING = 'my-env-connection-string'
       KthAppinsights.init({})
-      expect(applicationinsightsMock.setup).toHaveBeenCalledWith()
-      expect(applicationinsightsMock.start).toHaveBeenCalled()
+      expect(mockUseAzureMonitor).toHaveBeenCalledWith(
+        expect.objectContaining({ azureMonitorExporterOptions: { connectionString: 'my-env-connection-string' } })
+      )
     })
-    it('passes nothing when config are missing and env:APPINSIGHTS_INSTRUMENTATIONKEY exists', () => {
+    it('builds a connection string from env:APPINSIGHTS_INSTRUMENTATIONKEY when config is missing', () => {
       process.env.APPINSIGHTS_INSTRUMENTATIONKEY = 'my-env-instrumentation-key'
       KthAppinsights.init({})
-      expect(applicationinsightsMock.setup).toHaveBeenCalledWith()
-      expect(applicationinsightsMock.start).toHaveBeenCalled()
+      expect(mockUseAzureMonitor).toHaveBeenCalledWith(
+        expect.objectContaining({
+          azureMonitorExporterOptions: { connectionString: 'InstrumentationKey=my-env-instrumentation-key' },
+        })
+      )
     })
     it('does not initialize if config and env is missing', () => {
       KthAppinsights.init({})
-      expect(applicationinsightsMock.setup).not.toHaveBeenCalled()
-      expect(applicationinsightsMock.start).not.toHaveBeenCalled()
+      expect(mockUseAzureMonitor).not.toHaveBeenCalled()
     })
   })
-  describe('cloud-role-name', () => {
-    beforeEach(() => {})
-    it('sets if "name" is included in options', () => {
+
+  describe('cloud role name and instance', () => {
+    it('sets service.name and service.instance.id resource attributes if "name" is included in options', () => {
       KthAppinsights.init({ name: 'my-application' })
 
-      expect(applicationinsightsMock.defaultClient.context.tags['ai.cloud.role']).toBe('my-application')
+      expect(mockResourceFromAttributes).toHaveBeenCalledWith({
+        'service.name': 'my-application',
+        'service.instance.id': 'my-application-host1234',
+      })
+      expect(mockUseAzureMonitor).toHaveBeenCalledWith(
+        expect.objectContaining({
+          resource: {
+            attributes: { 'service.name': 'my-application', 'service.instance.id': 'my-application-host1234' },
+          },
+        })
+      )
     })
-    it('does not set without "name" in options', () => {
+    it('does not set a resource without "name" in options', () => {
       KthAppinsights.init({})
 
-      expect(Object.keys(applicationinsightsMock.defaultClient.context.tags)).not.toContain('ai.cloud.role')
+      expect(mockResourceFromAttributes).not.toHaveBeenCalled()
+      expect(mockUseAzureMonitor).toHaveBeenCalledWith(expect.not.objectContaining({ resource: expect.anything() }))
     })
-  })
-  describe('cloud-role-intance', () => {
-    beforeEach(() => {})
-    it('sets if "name" is included in options and hostname is resolvable', () => {
-      mockOs.hostname.mockReturnValue('my_host')
-
-      KthAppinsights.init({ name: 'my_application' })
-
-      expect(applicationinsightsMock.defaultClient.context.tags['ai.cloud.roleInstance']).toBe('my_application-my_host')
-    })
-    it('does not set without "name" in options', () => {
-      mockOs.hostname.mockReturnValue('my_host')
-
-      KthAppinsights.init({})
-
-      expect(Object.keys(applicationinsightsMock.defaultClient.context.tags)).not.toContain('ai.cloud.roleInstance')
-    })
-    it('does not set when hostname is not resolvable', () => {
+    it('omits service.instance.id when hostname is not resolvable', () => {
       mockOs.hostname.mockReturnValue(undefined)
 
-      KthAppinsights.init({ name: 'my_application' })
+      KthAppinsights.init({ name: 'my-application' })
 
-      expect(Object.keys(applicationinsightsMock.defaultClient.context.tags)).not.toContain('ai.cloud.roleInstance')
+      expect(mockResourceFromAttributes).toHaveBeenCalledWith({ 'service.name': 'my-application' })
     })
   })
+
   describe('sampling', () => {
-    beforeEach(() => {})
-    it('sets if "samplingPercentage" is included in options', () => {
+    it('converts samplingPercentage (0-100) to samplingRatio (0-1)', () => {
       KthAppinsights.init({ samplingPercentage: 50 })
 
-      expect(applicationinsightsMock.defaultClient.config.samplingPercentage).toBe(50)
+      expect(mockUseAzureMonitor).toHaveBeenCalledWith(expect.objectContaining({ samplingRatio: 0.5 }))
     })
-    it('does not set without "samplingPercentage" in options', () => {
+    it('does not set samplingRatio without "samplingPercentage" in options', () => {
       KthAppinsights.init({})
-      expect(Object.keys(applicationinsightsMock.defaultClient.config)).not.toContain('samplingPercentage')
+      expect(mockUseAzureMonitor).toHaveBeenCalledWith(
+        expect.not.objectContaining({ samplingRatio: expect.anything() })
+      )
+    })
+  })
+
+  describe('instrumentation options', () => {
+    it('enables bunyan, winston and http instrumentation with the custom hooks', () => {
+      KthAppinsights.init({})
+
+      expect(mockUseAzureMonitor).toHaveBeenCalledWith(
+        expect.objectContaining({
+          instrumentationOptions: expect.objectContaining({
+            bunyan: { enabled: true },
+            winston: { enabled: true },
+            http: expect.objectContaining({
+              enabled: true,
+              applyCustomAttributesOnSpan: expect.any(Function),
+              ignoreIncomingRequestHook: expect.any(Function),
+            }),
+          }),
+        })
+      )
     })
   })
 })
