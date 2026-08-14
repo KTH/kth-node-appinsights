@@ -1,6 +1,6 @@
 {
   "name": "@kth/appinsights",
-  "version": "0.6.0",
+  "version": "1.0.0-0",
   "description": "Log to Azure Application Insights",
   "main": "dist/index.js",
   "files": [
