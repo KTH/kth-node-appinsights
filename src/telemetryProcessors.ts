@@ -2,7 +2,7 @@ import { ClientRequest, IncomingMessage, ServerResponse } from 'http'
 import type { Span } from '@opentelemetry/api'
 
 // Adds the request's user-agent header as a custom property.
-export const setUserAgent = (span: Span, request: IncomingMessage) => {
+const setUserAgent = (span: Span, request: IncomingMessage) => {
   const userAgent = request.headers['user-agent']
   if (userAgent) {
     span.setAttribute('user_agent', userAgent)
@@ -13,7 +13,7 @@ export const setUserAgent = (span: Span, request: IncomingMessage) => {
 // Keys are set on the request object by the kth-node-api-key-strategy package,
 // which runs as middleware after the span has already been started - so this can
 // only be read once the response is on its way out, not from the earlier requestHook.
-export const setApiKeyName = (span: Span, request: IncomingMessage) => {
+const setApiKeyName = (span: Span, request: IncomingMessage) => {
   const keyName = (request as IncomingMessage & { apiClient?: { name?: string } }).apiClient?.name
   if (keyName) {
     span.setAttribute('api_key_name', keyName)
@@ -34,13 +34,13 @@ export const applyCustomAttributesOnSpan = (
 // Ignore tracing GET requests to static resources and assets
 // If url matches /<something>/static/<something>
 // If url matches /<something>/assets/<something>
-export const isResourceRequest = (request: IncomingMessage) =>
+const isResourceRequest = (request: IncomingMessage) =>
   request.method === 'GET' &&
   !!request.url &&
   (/\/[\w\-.]+\/static\/\w+/.test(request.url) || /\/[\w\-.]+\/assets\/\w+/.test(request.url))
 
 // Ignore tracing GET requests to /_monitor
-export const isMonitorRequest = (request: IncomingMessage) =>
+const isMonitorRequest = (request: IncomingMessage) =>
   request.method === 'GET' && !!request.url && request.url.includes('/_monitor')
 
 export const ignoreIncomingRequestHook = (request: IncomingMessage) =>
