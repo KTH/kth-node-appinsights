@@ -3,22 +3,30 @@ type appinsightOptions = {
   connectionString?: string
   instrumentationKey?: string
   samplingPercentage?: number
+  trackMongoDb?: boolean
+  trackRedis?: boolean
 }
 
 import { useAzureMonitor, type AzureMonitorOpenTelemetryOptions } from '@azure/monitor-opentelemetry'
 import { resourceFromAttributes } from '@opentelemetry/resources'
 import type { HttpInstrumentationConfig } from '@opentelemetry/instrumentation-http'
+import type { MongoDBInstrumentationConfig } from '@opentelemetry/instrumentation-mongodb'
 import * as os from 'os'
 
 export * as AppinsightsUtils from './utils'
 
-import { applyCustomAttributesOnSpan, ignoreIncomingRequestHook } from './telemetryProcessors'
+import { applyCustomAttributesOnSpan, ignoreIncomingRequestHook, hideDbStatement } from './telemetryProcessors'
 
 const httpInstrumentationConfig: HttpInstrumentationConfig = {
   enabled: true,
   applyCustomAttributesOnSpan,
   ignoreIncomingRequestHook,
 }
+
+const buildMongoDbInstrumentationConfig = (trackMongoDb?: boolean): MongoDBInstrumentationConfig => ({
+  enabled: trackMongoDb ?? true,
+  dbStatementSerializer: hideDbStatement,
+})
 
 const init = (options: appinsightOptions) => {
   const connectionString = resolveConnectionString(options)
@@ -33,6 +41,9 @@ const init = (options: appinsightOptions) => {
       bunyan: { enabled: true },
       winston: { enabled: true },
       http: httpInstrumentationConfig,
+      mongoDb: buildMongoDbInstrumentationConfig(options.trackMongoDb),
+      redis: { enabled: options.trackRedis ?? true },
+      redis4: { enabled: options.trackRedis ?? true },
     },
   }
 

@@ -1,7 +1,7 @@
 import { IncomingMessage, ClientRequest, ServerResponse } from 'http'
 import type { Span } from '@opentelemetry/api'
 
-import { applyCustomAttributesOnSpan, ignoreIncomingRequestHook } from './telemetryProcessors'
+import { applyCustomAttributesOnSpan, ignoreIncomingRequestHook, hideDbStatement } from './telemetryProcessors'
 
 const fakeSpan = (): Span => ({ setAttribute: jest.fn(), attributes: {} }) as unknown as Span
 
@@ -103,6 +103,14 @@ describe('Telemetry procesors', () => {
     })
     it('does not ignore other requests', () => {
       expect(ignoreIncomingRequestHook(incomingRequest({ method: 'GET', url: '/api/v1/users' }))).toBe(false)
+    })
+  })
+
+  describe('hideDbStatement', () => {
+    it('never returns the command it was given', () => {
+      expect(
+        hideDbStatement({ update: 'users', updates: [{ q: { _id: '?' }, u: { $set: { name: '?' } } }] })
+      ).toBeUndefined()
     })
   })
 })

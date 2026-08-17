@@ -1,5 +1,6 @@
 import { ClientRequest, IncomingMessage, ServerResponse } from 'http'
 import type { Span } from '@opentelemetry/api'
+import type { DbStatementSerializer } from '@opentelemetry/instrumentation-mongodb'
 
 // Adds the request's user-agent header as a custom property.
 const setUserAgent = (span: Span, request: IncomingMessage) => {
@@ -45,3 +46,6 @@ const isMonitorRequest = (request: IncomingMessage) =>
 
 export const ignoreIncomingRequestHook = (request: IncomingMessage) =>
   isResourceRequest(request) || isMonitorRequest(request)
+
+// Never include the MongoDB "command" in telemetry
+export const hideDbStatement = (() => undefined) as unknown as DbStatementSerializer

@@ -21,6 +21,8 @@ Options
 type appinsightOptions = {
   name?: string // Optional. Name of the application
   samplingPercentage?: number // Optional. Reduce the amount of telemetry collected
+  trackMongoDb?: boolean // Optional. Set to false to disable MongoDB tracking. Default true
+  trackRedis?: boolean // Optional. Set to false to disable Redis tracking. Default true
 }
 ```
 
@@ -42,6 +44,11 @@ Log records from Bunyan (used by @kth/log) and Winston are automatically collect
 
 Used to reduce the amount of telemetry collected, primary used to reduce cost.
 Enable with option `samplingPercentage`. Default is 100% = everything is collected.
+
+### MongoDB and Redis tracking
+
+MongoDB and Redis dependency calls are tracked by default. Disable either with `trackMongoDb: false` or
+`trackRedis: false`.
 
 ### Track operations for Agenda jobs
 

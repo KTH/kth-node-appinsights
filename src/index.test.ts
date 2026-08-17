@@ -126,5 +126,52 @@ describe('init applicationinsights', () => {
         })
       )
     })
+
+    describe('mongoDb tracking', () => {
+      it('is enabled by default', () => {
+        KthAppinsights.init({})
+        expect(mockUseAzureMonitor).toHaveBeenCalledWith(
+          expect.objectContaining({
+            instrumentationOptions: expect.objectContaining({
+              mongoDb: expect.objectContaining({ enabled: true }),
+            }),
+          })
+        )
+      })
+      it('can be disabled with trackMongoDb: false', () => {
+        KthAppinsights.init({ trackMongoDb: false })
+        expect(mockUseAzureMonitor).toHaveBeenCalledWith(
+          expect.objectContaining({
+            instrumentationOptions: expect.objectContaining({
+              mongoDb: expect.objectContaining({ enabled: false }),
+            }),
+          })
+        )
+      })
+      it('never includes the raw MongoDB command in telemetry', () => {
+        KthAppinsights.init({})
+        const [[{ instrumentationOptions }]] = mockUseAzureMonitor.mock.calls
+        expect(instrumentationOptions.mongoDb.dbStatementSerializer({ update: 'users', updates: [] })).toBeUndefined()
+      })
+    })
+
+    describe('redis tracking', () => {
+      it('is enabled by default for both redis and redis4', () => {
+        KthAppinsights.init({})
+        expect(mockUseAzureMonitor).toHaveBeenCalledWith(
+          expect.objectContaining({
+            instrumentationOptions: expect.objectContaining({ redis: { enabled: true }, redis4: { enabled: true } }),
+          })
+        )
+      })
+      it('can be disabled with trackRedis: false', () => {
+        KthAppinsights.init({ trackRedis: false })
+        expect(mockUseAzureMonitor).toHaveBeenCalledWith(
+          expect.objectContaining({
+            instrumentationOptions: expect.objectContaining({ redis: { enabled: false }, redis4: { enabled: false } }),
+          })
+        )
+      })
+    })
   })
 })
