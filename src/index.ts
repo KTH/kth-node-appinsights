@@ -7,7 +7,11 @@ type appinsightOptions = {
   trackRedis?: boolean
 }
 
-import { useAzureMonitor, type AzureMonitorOpenTelemetryOptions } from '@azure/monitor-opentelemetry'
+import {
+  useAzureMonitor,
+  shutdownAzureMonitor,
+  type AzureMonitorOpenTelemetryOptions,
+} from '@azure/monitor-opentelemetry'
 import { resourceFromAttributes } from '@opentelemetry/resources'
 import type { HttpInstrumentationConfig } from '@opentelemetry/instrumentation-http'
 import type { MongoDBInstrumentationConfig } from '@opentelemetry/instrumentation-mongodb'
@@ -59,6 +63,9 @@ const init = (options: appinsightOptions) => {
   useAzureMonitor(azureMonitorOptions)
 }
 
+// Call on app shutdown to flush any unsent telemetry
+const shutdown = () => Promise.resolve(shutdownAzureMonitor())
+
 const resolveConnectionString = (options: appinsightOptions): string | undefined => {
   if (options.connectionString) return options.connectionString
   if (options.instrumentationKey) return `InstrumentationKey=${options.instrumentationKey}`
@@ -82,4 +89,4 @@ const buildResource = (name: string) => {
   return resourceFromAttributes(attributes)
 }
 
-export const KthAppinsights = { init, trackEvent, trackMetric }
+export const KthAppinsights = { init, trackEvent, trackMetric, shutdown }

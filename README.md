@@ -1,12 +1,12 @@
 # @kth/appinsights
 
-A wrapper to send metrics to Azure Application Insights, based on [@azure/monitor-opentelemetry](https://www.npmjs.com/package/@azure/monitor-opentelemetry) package.
+A wrapper to send telemetry to Azure Application Insights, based on the [@azure/monitor-opentelemetry](https://www.npmjs.com/package/@azure/monitor-opentelemetry) package.
 
 This is intended for a standard use-case only. If your app needs more options, please use the core package instead.
 
 ## Usage
 
-Applicationinsights works by injecting code that captures telemetry from the application.
+This package works by injecting code that captures telemetry from the application.
 To get full tracking, this package should be initialized as soon as possible in the code.
 
 ```typescript
@@ -69,6 +69,17 @@ Record a custom metric value, which shows up in Application Insights' `customMet
 KthAppinsights.trackMetric({
   name: 'api_lookup',
   value: 21,
+})
+```
+
+### Shutdown
+
+Force-send any buffered telemetry when app is shut down.
+
+```typescript
+process.on('SIGTERM', async () => {
+  await KthAppinsights.shutdown()
+  process.exit(0)
 })
 ```
 

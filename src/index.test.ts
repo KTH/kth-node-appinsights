@@ -1,5 +1,9 @@
 const mockUseAzureMonitor = jest.fn()
-jest.mock('@azure/monitor-opentelemetry', () => ({ useAzureMonitor: mockUseAzureMonitor }))
+const mockShutdownAzureMonitor = jest.fn()
+jest.mock('@azure/monitor-opentelemetry', () => ({
+  useAzureMonitor: mockUseAzureMonitor,
+  shutdownAzureMonitor: mockShutdownAzureMonitor,
+}))
 
 const mockResourceFromAttributes = jest.fn((attributes: Record<string, string>) => ({ attributes }))
 jest.mock('@opentelemetry/resources', () => ({ resourceFromAttributes: mockResourceFromAttributes }))
@@ -172,6 +176,17 @@ describe('init applicationinsights', () => {
           })
         )
       })
+    })
+  })
+
+  describe('shutdown', () => {
+    it('calls shutdownAzureMonitor', async () => {
+      await KthAppinsights.shutdown()
+      expect(mockShutdownAzureMonitor).toHaveBeenCalled()
+    })
+    it('resolves even if shutdownAzureMonitor returns undefined (init was never called)', async () => {
+      mockShutdownAzureMonitor.mockReturnValueOnce(undefined)
+      await expect(KthAppinsights.shutdown()).resolves.toBeUndefined()
     })
   })
 })

@@ -11,6 +11,7 @@
 - `trackMongoDb` and `trackRedis` options to control MongoDB/Redis dependency tracking (both enabled by default).
   MongoDB tracking is new - it never worked under the previous SDK. The MongoDB command itself (query/update
   document) is never included, since it can contain full document bodies.
+- `KthAppinsights.shutdown()` to flush buffered telemetry before a process exits.
 
 ### Changed
 
