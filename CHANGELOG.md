@@ -1,5 +1,22 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- `KthAppinsights.trackEvent({ name, properties, measurements })` to send custom events, replacing
+  `applicationinsights`'s `defaultClient.trackEvent`.
+- `KthAppinsights.trackMetric({ name, value, properties })` to record custom metrics, replacing
+  `applicationinsights`'s `defaultClient.trackMetric`.
+- `trackMongoDb` and `trackRedis` options to control MongoDB/Redis dependency tracking (both enabled by default).
+  MongoDB tracking is new - it never worked under the previous SDK. The MongoDB command itself (query/update
+  document) is never included, since it can contain full document bodies.
+
+### Changed
+
+- Internally rebuilt on the Azure Monitor OpenTelemetry Distro instead of the classic `applicationinsights` SDK.  
+  **BREAKING** importing directly from `applicationinsights` will no longer work.
+
 ## [0.6.0] - 2025-07-31
 
 ### Changed

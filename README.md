@@ -50,6 +50,28 @@ Enable with option `samplingPercentage`. Default is 100% = everything is collect
 MongoDB and Redis dependency calls are tracked by default. Disable either with `trackMongoDb: false` or
 `trackRedis: false`.
 
+### Custom events
+
+Send a custom event, which shows up in Application Insights' `customEvents` table.
+
+```typescript
+KthAppinsights.trackEvent({
+  name: 'search',
+  properties: { searchOrigin: 'header', queryIn: 'test query' },
+})
+```
+
+### Custom metrics
+
+Record a custom metric value, which shows up in Application Insights' `customMetrics` table.
+
+```typescript
+KthAppinsights.trackMetric({
+  name: 'api_lookup',
+  value: 21,
+})
+```
+
 ### Track operations for Agenda jobs
 
 **This is not intended to be used on all agenda jobs. Only use ut when there is an actuall need.**  
