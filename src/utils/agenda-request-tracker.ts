@@ -1,7 +1,5 @@
 import { trace, context, SpanKind, SpanStatusCode } from '@opentelemetry/api'
 
-const tracer = trace.getTracer('@kth/appinsights')
-
 const operationIsSuccessfull = (job: any) => {
   if (!job?.attrs?.failedAt) return true
 
@@ -12,6 +10,7 @@ export const agendaRequestWrapper = (name: String, operation: Function) => async
   const operationName = `AGENDA ${name}`
   const repeatInterval = job?.attrs?.repeatInterval
 
+  const tracer = trace.getTracer('@kth/appinsights')
   const span = tracer.startSpan(operationName, { kind: SpanKind.SERVER, attributes: { repeatInterval } })
 
   return context.with(trace.setSpan(context.active(), span), async () => {

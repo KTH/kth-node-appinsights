@@ -15,6 +15,12 @@ jest.mock('@opentelemetry/api', () => {
 import { agendaRequestWrapper } from './agenda-request-tracker'
 
 describe('Agenda request tracking', () => {
+  it('does not call trace.getTracer() merely by being imported or by registering a job', () => {
+    // trace.getTracer() must be called AFTER package init is done
+    agendaRequestWrapper('JobName', jest.fn())
+
+    expect(mockGetTracer).not.toHaveBeenCalled()
+  })
   it('starts a span named after the operation', async () => {
     const operation = jest.fn()
     const wrappedOperation = agendaRequestWrapper('JobName', operation)
