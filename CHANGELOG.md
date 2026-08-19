@@ -4,6 +4,8 @@
 
 ### Added
 
+- `KthAppinsights.trackDependency({ name, dependencyTypeName, data, duration, resultCode, success, properties })` to
+  track a custom dependency call, replacing `applicationinsights`'s `defaultClient.trackDependency`.
 - `KthAppinsights.trackEvent({ name, properties, measurements })` to send custom events, replacing
   `applicationinsights`'s `defaultClient.trackEvent`.
 - `KthAppinsights.trackMetric({ name, value, properties })` to record custom metrics, replacing

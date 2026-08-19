@@ -50,6 +50,22 @@ Enable with option `samplingPercentage`. Default is 100% = everything is collect
 MongoDB and Redis dependency calls are tracked by default. Disable either with `trackMongoDb: false` or
 `trackRedis: false`.
 
+### Custom dependencies
+
+Track a call to something not already auto-collected (HTTP, MongoDB, Redis, ...), which shows up in Application
+Insights' `Dependencies` view.
+
+```typescript
+KthAppinsights.trackDependency({
+  name: 'findData',
+  dependencyTypeName: 'External Service', // Shows as "Type"
+  data: 'id: 1234', // Shows as "Command"
+  success: true,
+  duration: 5, // milliseconds
+  resultCode: 200, // Maps to a custom field
+})
+```
+
 ### Custom events
 
 Send a custom event, which shows up in Application Insights' `customEvents` table.
