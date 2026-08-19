@@ -1,12 +1,12 @@
 # @kth/appinsights
 
-A wrapper for the [applicationinsights](https://www.npmjs.com/package/applicationinsights) package.
+A wrapper to send telemetry to Azure Application Insights, based on the [@azure/monitor-opentelemetry](https://www.npmjs.com/package/@azure/monitor-opentelemetry) package.
 
 This is intended for a standard use-case only. If your app needs more options, please use the core package instead.
 
 ## Usage
 
-Applicationinsights works by injecting code that captures telemetry from the application.
+This package works by injecting code that captures telemetry from the application.
 To get full tracking, this package should be initialized as soon as possible in the code.
 
 ```typescript
@@ -21,6 +21,8 @@ Options
 type appinsightOptions = {
   name?: string // Optional. Name of the application
   samplingPercentage?: number // Optional. Reduce the amount of telemetry collected
+  trackMongoDb?: boolean // Optional. Set to false to disable MongoDB tracking. Default true
+  trackRedis?: boolean // Optional. Set to false to disable Redis tracking. Default true
 }
 ```
 
@@ -34,17 +36,68 @@ The if `name` is passed in the options, it will be used to set "Cloud role name"
 
 If a request has the `user-agent` header set, it will be saved in the custom property `user_agent`.
 
-### Unpack Bunyan messages
+### Bunyan and Winston logs
 
-Bynyan messages (used by @kth/log) will be desctructured, and only the "msg" field kept, as all other information is duplicated on native data fields.
-
-Example:  
-`{ name: "my-app", level: 30, msg: "the important part" }` will be reduced to just `"the important part"`.
+Log records from Bunyan (used by @kth/log) and Winston are automatically collected as OpenTelemetry logs.
 
 ### Telemetry Sampling
 
 Used to reduce the amount of telemetry collected, primary used to reduce cost.
 Enable with option `samplingPercentage`. Default is 100% = everything is collected.
+
+### MongoDB and Redis tracking
+
+MongoDB and Redis dependency calls are tracked by default. Disable either with `trackMongoDb: false` or
+`trackRedis: false`.
+
+### Custom dependencies
+
+Track a call to something not already auto-collected (HTTP, MongoDB, Redis, ...), which shows up in Application
+Insights' `Dependencies` view.
+
+```typescript
+KthAppinsights.trackDependency({
+  name: 'findData',
+  dependencyTypeName: 'External Service', // Shows as "Type"
+  data: 'id: 1234', // Shows as "Command"
+  success: true,
+  duration: 5, // milliseconds
+  resultCode: 200, // Maps to a custom field
+})
+```
+
+### Custom events
+
+Send a custom event, which shows up in Application Insights' `customEvents` table.
+
+```typescript
+KthAppinsights.trackEvent({
+  name: 'search',
+  properties: { searchOrigin: 'header', queryIn: 'test query' },
+})
+```
+
+### Custom metrics
+
+Record a custom metric value, which shows up in Application Insights' `customMetrics` table.
+
+```typescript
+KthAppinsights.trackMetric({
+  name: 'api_lookup',
+  value: 21,
+})
+```
+
+### Shutdown
+
+Force-send any buffered telemetry when app is shut down.
+
+```typescript
+process.on('SIGTERM', async () => {
+  await KthAppinsights.shutdown()
+  process.exit(0)
+})
+```
 
 ### Track operations for Agenda jobs
 

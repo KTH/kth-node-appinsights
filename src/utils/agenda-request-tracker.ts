@@ -1,7 +1,4 @@
-import * as appInsights from 'applicationinsights'
-import * as opentelemetry from '@opentelemetry/api'
-
-const tracer = opentelemetry.trace.getTracer('@kth/appinsights')
+import { trace, context, SpanKind, SpanStatusCode } from '@opentelemetry/api'
 
 const operationIsSuccessfull = (job: any) => {
   if (!job?.attrs?.failedAt) return true
@@ -10,35 +7,21 @@ const operationIsSuccessfull = (job: any) => {
 }
 
 export const agendaRequestWrapper = (name: String, operation: Function) => async (job: any, done: Function) => {
-  const client = appInsights.defaultClient
-
   const operationName = `AGENDA ${name}`
   const repeatInterval = job?.attrs?.repeatInterval
-  const startTime = new Date()
 
-  const parentSpan = tracer.startSpan(operationName) as unknown as opentelemetry.SpanContext
-  const correlationContext = appInsights.startOperation(parentSpan, operationName)
+  const tracer = trace.getTracer('@kth/appinsights')
+  const span = tracer.startSpan(operationName, { kind: SpanKind.SERVER, attributes: { repeatInterval } })
 
-  if (!client?.trackRequest || !correlationContext || !parentSpan) {
-    await operation(job, done)
-    return
-  }
-
-  return await appInsights.wrapWithCorrelationContext(async () => {
-    await operation(job, done)
-
-    const duration = new Date().getTime() - startTime.getTime()
-
-    const success = operationIsSuccessfull(job)
-
-    client?.trackRequest({
-      time: startTime,
-      duration,
-      name: operationName,
-      properties: { repeatInterval },
-      url: '',
-      resultCode: '',
-      success,
-    })
-  }, correlationContext)()
+  return context.with(trace.setSpan(context.active(), span), async () => {
+    try {
+      await operation(job, done)
+    } catch (error) {
+      span.recordException(error as Error)
+      throw error
+    } finally {
+      span.setStatus({ code: operationIsSuccessfull(job) ? SpanStatusCode.OK : SpanStatusCode.ERROR })
+      span.end()
+    }
+  })
 }

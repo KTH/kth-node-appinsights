@@ -1,178 +1,103 @@
-// Mock applicationinsights
-const mockTrackRequest = jest.fn()
-
-const applicationinsightsMock: any = {
-  setup: jest.fn(() => applicationinsightsMock),
-  start: jest.fn(() => applicationinsightsMock),
-  defaultClient: {
-    trackRequest: mockTrackRequest,
-  },
-  startOperation: jest.fn(() => 'MockedCorrelationContext'),
-  wrapWithCorrelationContext: jest.fn((func, context) => {
-    func()
-    return jest.fn
-  }),
+const fakeSpan = {
+  setAttribute: jest.fn(),
+  setStatus: jest.fn(),
+  recordException: jest.fn(),
+  end: jest.fn(),
 }
+const mockStartSpan = jest.fn(() => fakeSpan)
+const mockGetTracer = jest.fn(() => ({ startSpan: mockStartSpan }))
 
-jest.mock('applicationinsights', () => applicationinsightsMock)
-
-// Mock opentelemetryApi
-const mockedSpan = {
-  _spanContext: { spanId: '0123456789012345', traceFlags: 0, traceId: '01234567890123456789012345678901' },
-}
-
-const mockOpentelemetryApi = {
-  trace: { getTracer: jest.fn(() => ({ startSpan: jest.fn(() => mockedSpan) })) },
-}
-
-jest.mock('@opentelemetry/api', () => mockOpentelemetryApi)
+jest.mock('@opentelemetry/api', () => {
+  const actual = jest.requireActual('@opentelemetry/api')
+  return { ...actual, trace: { ...actual.trace, getTracer: mockGetTracer } }
+})
 
 import { agendaRequestWrapper } from './agenda-request-tracker'
 
 describe('Agenda request tracking', () => {
-  beforeEach(() => {
-    applicationinsightsMock.defaultClient = {
-      trackRequest: mockTrackRequest,
-    }
-    jest.useFakeTimers()
-  })
-  afterEach(() => {
-    jest.useRealTimers()
-  })
-  it('calls startOperation with span generated from opentelemetry', async () => {
-    const operation = jest.fn()
+  it('does not call trace.getTracer() merely by being imported or by registering a job', () => {
+    // trace.getTracer() must be called AFTER package init is done
+    agendaRequestWrapper('JobName', jest.fn())
 
+    expect(mockGetTracer).not.toHaveBeenCalled()
+  })
+  it('starts a span named after the operation', async () => {
+    const operation = jest.fn()
     const wrappedOperation = agendaRequestWrapper('JobName', operation)
 
-    const job = { attrs: {} }
-    const done = jest.fn()
+    await wrappedOperation({ attrs: {} }, jest.fn())
 
-    await wrappedOperation(job, done)
-    expect(applicationinsightsMock.startOperation).toHaveBeenCalledWith(mockedSpan, expect.any(String))
-  })
-  it('calls wrapWithCorrelationContext with context from startOperation', async () => {
-    const operation = jest.fn()
-
-    const wrappedOperation = agendaRequestWrapper('JobName', operation)
-
-    const job = { attrs: {} }
-    const done = jest.fn()
-
-    await wrappedOperation(job, done)
-    expect(applicationinsightsMock.wrapWithCorrelationContext).toHaveBeenCalledWith(
-      expect.any(Function),
-      'MockedCorrelationContext'
+    expect(mockStartSpan).toHaveBeenCalledWith(
+      'AGENDA JobName',
+      expect.objectContaining({ attributes: { repeatInterval: undefined } })
     )
   })
-  it('calls the passed agenda operation', async () => {
+  it('includes the job repeatInterval as a span attribute', async () => {
     const operation = jest.fn()
-
     const wrappedOperation = agendaRequestWrapper('JobName', operation)
 
-    const job = { attrs: {} }
-    const done = jest.fn()
+    await wrappedOperation({ attrs: { repeatInterval: 3600 } }, jest.fn())
 
-    await wrappedOperation(job, done)
-    expect(operation).toHaveBeenCalledWith(job, done)
-  })
-  it('calls the passed agenda operation even when applicationinsights is not initialized', async () => {
-    applicationinsightsMock.defaultClient = undefined
-    const operation = jest.fn()
-
-    const wrappedOperation = agendaRequestWrapper('JobName', operation)
-
-    const job = { attrs: {} }
-    const done = jest.fn()
-
-    await wrappedOperation(job, done)
-    expect(operation).toHaveBeenCalledWith(job, done)
-  })
-  it('calls trackRequest with correct data', async () => {
-    const operation = jest.fn()
-
-    const wrappedOperation = agendaRequestWrapper('JobName', operation)
-
-    const job = { attrs: { repeatInterval: 3600 } }
-    const done = jest.fn()
-
-    await wrappedOperation(job, done)
-    expect(applicationinsightsMock.defaultClient.trackRequest).toHaveBeenCalledWith(
-      expect.objectContaining({
-        duration: expect.any(Number),
-
-        name: 'AGENDA JobName',
-        properties: { repeatInterval: 3600 },
-      })
+    expect(mockStartSpan).toHaveBeenCalledWith(
+      'AGENDA JobName',
+      expect.objectContaining({ attributes: { repeatInterval: 3600 } })
     )
   })
-  it('computes correct time and duration', async () => {
+  it('calls the passed agenda operation with job and done', async () => {
+    const operation = jest.fn()
+    const wrappedOperation = agendaRequestWrapper('JobName', operation)
+
+    const job = { attrs: {} }
+    const done = jest.fn()
+    await wrappedOperation(job, done)
+
+    expect(operation).toHaveBeenCalledWith(job, done)
+  })
+  it('ends the span after the operation completes', async () => {
+    const operation = jest.fn()
+    const wrappedOperation = agendaRequestWrapper('JobName', operation)
+
+    await wrappedOperation({ attrs: {} }, jest.fn())
+
+    expect(fakeSpan.end).toHaveBeenCalled()
+  })
+  it('marks the span status as ERROR if last fail time is same as last run time', async () => {
+    const operation = jest.fn()
+    const wrappedOperation = agendaRequestWrapper('JobName', operation)
+
+    const lastRun = new Date()
+    await wrappedOperation({ attrs: { failedAt: lastRun, lastFinishedAt: lastRun } }, jest.fn())
+
+    expect(fakeSpan.setStatus).toHaveBeenCalledWith({ code: 2 }) // SpanStatusCode.ERROR
+  })
+  it('marks the span status as OK if last fail time differs from last run time', async () => {
+    const operation = jest.fn()
+    const wrappedOperation = agendaRequestWrapper('JobName', operation)
+
+    const lastRun = new Date()
+    const lastFail = new Date(lastRun.getTime() - 1000)
+    await wrappedOperation({ attrs: { failedAt: lastFail, lastFinishedAt: lastRun } }, jest.fn())
+
+    expect(fakeSpan.setStatus).toHaveBeenCalledWith({ code: 1 }) // SpanStatusCode.OK
+  })
+  it('marks the span status as OK if last fail time is missing', async () => {
+    const operation = jest.fn()
+    const wrappedOperation = agendaRequestWrapper('JobName', operation)
+
+    await wrappedOperation({ attrs: {} }, jest.fn())
+
+    expect(fakeSpan.setStatus).toHaveBeenCalledWith({ code: 1 }) // SpanStatusCode.OK
+  })
+  it('records the exception, ends the span and rethrows if the operation fails', async () => {
+    const error = new Error('boom')
     const operation = jest.fn(async () => {
-      await new Promise(resolve => {
-        setTimeout(resolve, 4000)
-        jest.advanceTimersToNextTimer()
-      })
+      throw error
     })
-
-    const startTime = new Date()
-
     const wrappedOperation = agendaRequestWrapper('JobName', operation)
 
-    const job = { attrs: {} }
-    const done = jest.fn()
+    await expect(wrappedOperation({ attrs: {} }, jest.fn())).rejects.toThrow(error)
 
-    await wrappedOperation(job, done)
-    expect(applicationinsightsMock.defaultClient.trackRequest).toHaveBeenCalledWith(
-      expect.objectContaining({ duration: 4000, time: startTime })
-    )
-  })
-  it('marks operation as not successfull if last fail time is same as last run time', async () => {
-    const operation = jest.fn()
-
-    const lastRun = new Date()
-    const lastFail = lastRun
-
-    const wrappedOperation = agendaRequestWrapper('JobName', operation)
-    const job = { attrs: { failedAt: lastFail, lastFinishedAt: lastRun } }
-    const done = jest.fn()
-
-    await wrappedOperation(job, done)
-    expect(applicationinsightsMock.defaultClient.trackRequest).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: false,
-      })
-    )
-  })
-  it('marks operation as successfull if last fail time differs from last run time', async () => {
-    const operation = jest.fn()
-
-    const lastRun = new Date()
-    const lastFail = new Date(Date.now() - 1000)
-
-    const wrappedOperation = agendaRequestWrapper('JobName', operation)
-    const job = { attrs: { failedAt: lastFail, lastFinishedAt: lastRun } }
-    const done = jest.fn()
-
-    await wrappedOperation(job, done)
-    expect(applicationinsightsMock.defaultClient.trackRequest).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: true,
-      })
-    )
-  })
-  it('marks operation as successfull if last fail time is missing', async () => {
-    const operation = jest.fn()
-
-    const lastRun = new Date()
-
-    const wrappedOperation = agendaRequestWrapper('JobName', operation)
-    const job = { attrs: { lastFinishedAt_: lastRun } }
-    const done = jest.fn()
-
-    await wrappedOperation(job, done)
-    expect(applicationinsightsMock.defaultClient.trackRequest).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: true,
-      })
-    )
+    expect(fakeSpan.recordException).toHaveBeenCalledWith(error)
+    expect(fakeSpan.end).toHaveBeenCalled()
   })
 })

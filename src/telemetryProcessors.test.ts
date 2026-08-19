@@ -1,360 +1,116 @@
-import { Contracts } from 'applicationinsights'
+import { IncomingMessage, ClientRequest, ServerResponse } from 'http'
+import type { Span } from '@opentelemetry/api'
 
-import {
-  userAgentOnRequest,
-  apiKeyNameOnRequest,
-  unpackBunyanLog,
-  skipResourceRequests,
-  skipMonitorRequests,
-} from './telemetryProcessors'
+import { applyCustomAttributesOnSpan, ignoreIncomingRequestHook, hideDbStatement } from './telemetryProcessors'
 
-const requestWithHeaders = (headers: any) => ({
-  get: jest.fn((name: string) => headers[name]),
-})
+const fakeSpan = (): Span => ({ setAttribute: jest.fn(), attributes: {} }) as unknown as Span
+
+const incomingRequest = (overrides: Partial<IncomingMessage> & Record<string, any> = {}): IncomingMessage =>
+  Object.assign(Object.create(IncomingMessage.prototype), { headers: {}, ...overrides })
+
+const fakeResponse = (): ServerResponse => Object.create(ServerResponse.prototype)
 
 describe('Telemetry procesors', () => {
-  describe('Save user_agent on Requests', () => {
-    it('sets user_agent if telemetry is Requests and user-agent header exists', () => {
-      const envelope = { data: { baseType: 'RequestData' } } as Contracts.EnvelopeTelemetry
-      const context = {
-        'http.ServerRequest': requestWithHeaders({ 'user-agent': 'test_agent' }),
-      }
-      userAgentOnRequest(envelope, context)
-      expect(envelope.data.baseData?.properties?.user_agent).toEqual('test_agent')
+  describe('applyCustomAttributesOnSpan', () => {
+    it('sets user_agent if the header exists', () => {
+      const span = fakeSpan()
+      applyCustomAttributesOnSpan(span, incomingRequest({ headers: { 'user-agent': 'test_agent' } }), fakeResponse())
+      expect(span.setAttribute).toHaveBeenCalledWith('user_agent', 'test_agent')
     })
-    it('does not set user_agent if telemetry is not a Requests', () => {
-      const envelope = { data: { baseType: 'OtherTelemetry' } } as Contracts.EnvelopeTelemetry
-      const context = {
-        'http.ServerRequest': requestWithHeaders({ 'user-agent': 'test_agent' }),
-      }
-      userAgentOnRequest(envelope, context)
-      expect(envelope.data.baseData?.properties?.user_agent).toEqual(undefined)
+    it('does not set user_agent if the header is missing', () => {
+      const span = fakeSpan()
+      applyCustomAttributesOnSpan(span, incomingRequest({ headers: {} }), fakeResponse())
+      expect(span.setAttribute).not.toHaveBeenCalledWith('user_agent', expect.anything())
     })
-    it('does not set user_agent if user-agent header is missing', () => {
-      const envelope = { data: { baseType: 'RequestData' } } as Contracts.EnvelopeTelemetry
-      const context = {
-        'http.ServerRequest': requestWithHeaders({ 'other-header': 'test_data' }),
-      }
-      userAgentOnRequest(envelope, context)
-      expect(envelope.data.baseData?.properties?.user_agent).toEqual(undefined)
+    it('sets api_key_name if apiClient information exists on the request', () => {
+      const span = fakeSpan()
+      applyCustomAttributesOnSpan(span, incomingRequest({ apiClient: { name: 'test_key' } }), fakeResponse())
+      expect(span.setAttribute).toHaveBeenCalledWith('api_key_name', 'test_key')
     })
-    it('does not overwrite existing properties when setting user_agent', () => {
-      const envelope = {
-        data: {
-          baseType: 'RequestData',
-          baseData: { otherData: 'keep_me', properties: { otherProperty: 'keep_me_too' } },
-        },
-      } as unknown as Contracts.EnvelopeTelemetry
-      const context = {
-        'http.ServerRequest': requestWithHeaders({ 'user-agent': 'test_agent' }),
-      }
-      userAgentOnRequest(envelope, context)
-      expect(envelope.data.baseData?.otherData).toEqual('keep_me')
-      expect(envelope.data.baseData?.properties?.otherProperty).toEqual('keep_me_too')
+    it('does not set api_key_name if apiClient is missing', () => {
+      const span = fakeSpan()
+      applyCustomAttributesOnSpan(span, incomingRequest({}), fakeResponse())
+      expect(span.setAttribute).not.toHaveBeenCalledWith('api_key_name', expect.anything())
     })
-    it('returns true for all types', () => {
-      const envelope = { data: { baseType: 'OtherTelemetry' } } as Contracts.EnvelopeTelemetry
+    it('does not set api_key_name if apiClient lacks a name', () => {
+      const span = fakeSpan()
+      applyCustomAttributesOnSpan(span, incomingRequest({ apiClient: { other: 'other data' } }), fakeResponse())
+      expect(span.setAttribute).not.toHaveBeenCalledWith('api_key_name', expect.anything())
+    })
+    it('reads apiClient even when set after the request object was created (e.g. by later middleware)', () => {
+      const span = fakeSpan()
+      const request = incomingRequest({ headers: {} })
 
-      const callResult = userAgentOnRequest(envelope)
-      expect(callResult).toBe(true)
-    })
-    it('returns true when envelope is empty', () => {
-      const envelope = {} as Contracts.EnvelopeTelemetry
+      ;(request as any).apiClient = { name: 'test_key' }
 
-      const callResult = userAgentOnRequest(envelope)
-      expect(callResult).toBe(true)
+      applyCustomAttributesOnSpan(span, request, fakeResponse())
+      expect(span.setAttribute).toHaveBeenCalledWith('api_key_name', 'test_key')
     })
-    it('returns true when context is empty', () => {
-      const envelope = { data: { baseType: 'RequestData' } } as Contracts.EnvelopeTelemetry
-      const context = {}
-
-      const callResult = userAgentOnRequest(envelope, context)
-      expect(callResult).toBe(true)
+    it('sets both custom attributes for an incoming request', () => {
+      const span = fakeSpan()
+      applyCustomAttributesOnSpan(
+        span,
+        incomingRequest({ headers: { 'user-agent': 'test_agent' }, apiClient: { name: 'test_key' } }),
+        fakeResponse()
+      )
+      expect(span.setAttribute).toHaveBeenCalledWith('user_agent', 'test_agent')
+      expect(span.setAttribute).toHaveBeenCalledWith('api_key_name', 'test_key')
+    })
+    it('does nothing for outgoing (dependency) requests', () => {
+      const span = fakeSpan()
+      const outgoingRequest = Object.create(ClientRequest.prototype)
+      applyCustomAttributesOnSpan(span, outgoingRequest, fakeResponse())
+      expect(span.setAttribute).not.toHaveBeenCalled()
     })
   })
-  describe('Save api key name on Requests', () => {
-    it('sets api_key_name if telemetry is Requests and apiClient information exists', () => {
-      const envelope = { data: { baseType: 'RequestData' } } as Contracts.EnvelopeTelemetry
-      const context = {
-        'http.ServerRequest': { apiClient: { name: 'test_key' } },
-      }
-      apiKeyNameOnRequest(envelope, context)
-      expect(envelope.data.baseData?.properties?.api_key_name).toEqual('test_key')
-    })
-    it('does not set api_key_name if telemetry is not a Requests', () => {
-      const envelope = { data: { baseType: 'OtherTelemetry' } } as Contracts.EnvelopeTelemetry
-      const context = {
-        'http.ServerRequest': { apiClient: { name: 'test_key' } },
-      }
-      apiKeyNameOnRequest(envelope, context)
-      expect(envelope.data.baseData?.properties?.api_key_name).toEqual(undefined)
-    })
-    it('does not set api_key_name if apiClient lacks name', () => {
-      const envelope = { data: { baseType: 'RequestData' } } as Contracts.EnvelopeTelemetry
-      const context = {
-        'http.ServerRequest': { apiClient: { other: 'other data' } },
-      }
-      apiKeyNameOnRequest(envelope, context)
-      expect(envelope.data.baseData?.properties?.api_key_name).toEqual(undefined)
-    })
-    it('does not overwrite existing properties when setting api_key_name', () => {
-      const envelope = {
-        data: {
-          baseType: 'RequestData',
-          baseData: { otherData: 'keep_me', properties: { otherProperty: 'keep_me_too' } },
-        },
-      } as unknown as Contracts.EnvelopeTelemetry
-      const context = {
-        'http.ServerRequest': { apiClient: { name: 'test_key' } },
-      }
-      apiKeyNameOnRequest(envelope, context)
-      expect(envelope.data.baseData?.otherData).toEqual('keep_me')
-      expect(envelope.data.baseData?.properties?.otherProperty).toEqual('keep_me_too')
-    })
-    it('returns true for all types', () => {
-      const envelope = { data: { baseType: 'OtherTelemetry' } } as Contracts.EnvelopeTelemetry
 
-      const callResult = apiKeyNameOnRequest(envelope)
-      expect(callResult).toBe(true)
+  describe('ignoreIncomingRequestHook', () => {
+    it('ignores a GET request with /static/ in the url', () => {
+      expect(ignoreIncomingRequestHook(incomingRequest({ method: 'GET', url: '/endpoint/static/media' }))).toBe(true)
     })
-    it('returns true when envelope is empty', () => {
-      const envelope = {} as Contracts.EnvelopeTelemetry
-
-      const callResult = apiKeyNameOnRequest(envelope)
-      expect(callResult).toBe(true)
+    it('ignores a GET request with /assets/ in the url', () => {
+      expect(ignoreIncomingRequestHook(incomingRequest({ method: 'GET', url: '/endpoint/assets/media' }))).toBe(true)
     })
-    it('returns true when context is empty', () => {
-      const envelope = { data: { baseType: 'RequestData' } } as Contracts.EnvelopeTelemetry
-      const context = {}
-
-      const callResult = apiKeyNameOnRequest(envelope, context)
-      expect(callResult).toBe(true)
+    it('ignores a GET request to /_monitor', () => {
+      expect(ignoreIncomingRequestHook(incomingRequest({ method: 'GET', url: '/endpoint/_monitor' }))).toBe(true)
+    })
+    it('ignores a GET request to /_monitor with query params', () => {
+      expect(
+        ignoreIncomingRequestHook(incomingRequest({ method: 'GET', url: '/endpoint/_monitor?query=my-param' }))
+      ).toBe(true)
+    })
+    it('does not ignore a GET request where the url merely contains the word "static"', () => {
+      expect(
+        ignoreIncomingRequestHook(incomingRequest({ method: 'GET', url: '/profile/static-man/publications' }))
+      ).toBe(false)
+    })
+    it('does not ignore a GET request where the url merely contains the word "assets"', () => {
+      expect(
+        ignoreIncomingRequestHook(incomingRequest({ method: 'GET', url: '/profile/assets-man/publications' }))
+      ).toBe(false)
+    })
+    it('does not ignore a GET request when the url ends with "static/" with nothing after it', () => {
+      expect(ignoreIncomingRequestHook(incomingRequest({ method: 'GET', url: '/endpoint/static/' }))).toBe(false)
+    })
+    it('does not ignore a non-GET request even if the url matches /static/', () => {
+      expect(ignoreIncomingRequestHook(incomingRequest({ method: 'POST', url: '/endpoint/static/media' }))).toBe(false)
+    })
+    it('does not ignore a non-GET request to /_monitor', () => {
+      expect(ignoreIncomingRequestHook(incomingRequest({ method: 'POST', url: '/endpoint/_monitor' }))).toBe(false)
+    })
+    it('does not ignore a GET request when the url is missing', () => {
+      expect(ignoreIncomingRequestHook(incomingRequest({ method: 'GET', url: undefined }))).toBe(false)
+    })
+    it('does not ignore other requests', () => {
+      expect(ignoreIncomingRequestHook(incomingRequest({ method: 'GET', url: '/api/v1/users' }))).toBe(false)
     })
   })
-  describe('Unpack bunyan logs', () => {
-    it('replaces whole message object with content from msg field', () => {
-      const message = { msg: 'keep just this', level: 30, name: 'test-app' }
-      const envelope = {
-        data: {
-          baseType: 'MessageData',
-          baseData: { message: JSON.stringify(message) },
-        },
-      } as unknown as Contracts.EnvelopeTelemetry
-      unpackBunyanLog(envelope)
-      expect(envelope.data.baseData?.message).toEqual('keep just this')
-    })
-    it('leaves message untouched if message lacks "msg" field', () => {
-      const message = { level: 30, name: 'test-app' }
-      const envelope = {
-        data: {
-          baseType: 'MessageData',
-          baseData: { message: JSON.stringify(message) },
-        },
-      } as unknown as Contracts.EnvelopeTelemetry
-      unpackBunyanLog(envelope)
-      expect(envelope.data.baseData?.message).toEqual('{"level":30,"name":"test-app"}')
-    })
-    it('leaves message untouched if message lacks "level" field', () => {
-      const message = { msg: 'keep just this', name: 'test-app' }
-      const envelope = {
-        data: {
-          baseType: 'MessageData',
-          baseData: { message: JSON.stringify(message) },
-        },
-      } as unknown as Contracts.EnvelopeTelemetry
-      unpackBunyanLog(envelope)
-      expect(envelope.data.baseData?.message).toEqual('{"msg":"keep just this","name":"test-app"}')
-    })
-    it('leaves message untouched if message lacks "name" field', () => {
-      const message = { msg: 'keep just this', level: 30 }
-      const envelope = {
-        data: {
-          baseType: 'MessageData',
-          baseData: { message: JSON.stringify(message) },
-        },
-      } as unknown as Contracts.EnvelopeTelemetry
-      unpackBunyanLog(envelope)
-      expect(envelope.data.baseData?.message).toEqual('{"msg":"keep just this","level":30}')
-    })
-    it('leaves message untouched if processor fails', () => {
-      const message = new Error('this is not json parsable')
-      const envelope = {
-        data: {
-          baseType: 'MessageData',
-          baseData: { message },
-        },
-      } as unknown as Contracts.EnvelopeTelemetry
-      unpackBunyanLog(envelope)
-      expect(envelope.data.baseData?.message).toEqual(message)
-    })
-  })
-  describe('Ignore requests to static resources', () => {
-    it('does not log GET request when url has /static/', () => {
-      const envelope = {
-        data: {
-          baseType: 'RequestData',
-          baseData: {
-            name: 'GET <any_request_name>',
-            url: 'my-server/endpoint/static/media',
-          },
-        },
-      } as unknown as Contracts.EnvelopeTelemetry
-      const callResult = skipResourceRequests(envelope)
-      expect(callResult).toBe(false)
-    })
-    it('does not log GET request when url has /assets/', () => {
-      const envelope = {
-        data: {
-          baseType: 'RequestData',
-          baseData: {
-            name: 'GET <any_request_name>',
-            url: 'my-server/endpoint/assets/media',
-          },
-        },
-      } as unknown as Contracts.EnvelopeTelemetry
-      const callResult = skipResourceRequests(envelope)
-      expect(callResult).toBe(false)
-    })
-    it('logs request that happens to have the word "static" in the url', () => {
-      const envelope = {
-        data: {
-          baseType: 'RequestData',
-          baseData: {
-            name: 'GET <any_request_name>',
-            url: 'my-server/profile/static-man/publications',
-          },
-        },
-      } as unknown as Contracts.EnvelopeTelemetry
-      const callResult = skipResourceRequests(envelope)
-      expect(callResult).toBe(true)
-    })
-    it('logs request that happens to have the word "assets" in the url', () => {
-      const envelope = {
-        data: {
-          baseType: 'RequestData',
-          baseData: {
-            name: 'GET <any_request_name>',
-            url: 'my-server/profile/assets-man/publications',
-          },
-        },
-      } as unknown as Contracts.EnvelopeTelemetry
-      const callResult = skipResourceRequests(envelope)
-      expect(callResult).toBe(true)
-    })
-    it('logs requests where url ends with "static/', () => {
-      const envelope = {
-        data: {
-          baseType: 'RequestData',
-          baseData: {
-            name: 'GET <any_request_name>',
-            url: 'my-server/endpoint/static/',
-          },
-        },
-      } as unknown as Contracts.EnvelopeTelemetry
-      const callResult = skipResourceRequests(envelope)
-      expect(callResult).toBe(true)
-    })
-    it('logs requests where url ends with "assets/', () => {
-      const envelope = {
-        data: {
-          baseType: 'RequestData',
-          baseData: {
-            name: 'GET <any_request_name>',
-            url: 'my-server/endpoint/assets/',
-          },
-        },
-      } as unknown as Contracts.EnvelopeTelemetry
-      const callResult = skipResourceRequests(envelope)
-      expect(callResult).toBe(true)
-    })
-    it('logs a non-GET request when url has /static/', () => {
-      const envelope = {
-        data: {
-          baseType: 'RequestData',
-          baseData: {
-            name: 'POST <any_request_name>',
-            url: 'my-server/endpoint/static/media',
-          },
-        },
-      } as unknown as Contracts.EnvelopeTelemetry
-      const callResult = skipResourceRequests(envelope)
-      expect(callResult).toBe(true)
-    })
-    it('logs a non-GET request when url has /assets/', () => {
-      const envelope = {
-        data: {
-          baseType: 'RequestData',
-          baseData: {
-            name: 'POST <any_request_name>',
-            url: 'my-server/endpoint/assets/media',
-          },
-        },
-      } as unknown as Contracts.EnvelopeTelemetry
-      const callResult = skipResourceRequests(envelope)
-      expect(callResult).toBe(true)
-    })
-    it('logs if processor fails', () => {
-      const name = new Error('this is not a valid string')
-      const envelope = {
-        data: {
-          baseType: 'RequestData',
-          baseData: { name, url: 'my-server/endpoint/static/media' },
-        },
-      } as unknown as Contracts.EnvelopeTelemetry
-      const callResult = skipResourceRequests(envelope)
-      expect(callResult).toBe(true)
-    })
-  })
-  describe('Ignore _monitor requests', () => {
-    it('does not log GET request containing /_monitor', () => {
-      const envelope = {
-        data: {
-          baseType: 'RequestData',
-          baseData: {
-            name: 'GET <any_request_name>',
-            url: 'my-server/endpoint/_monitor',
-          },
-        },
-      } as unknown as Contracts.EnvelopeTelemetry
-      const callResult = skipMonitorRequests(envelope)
-      expect(callResult).toBe(false)
-    })
-    it('does not log /_monitor request with queryparams', () => {
-      const envelope = {
-        data: {
-          baseType: 'RequestData',
-          baseData: {
-            name: 'GET <any_request_name>',
-            url: 'my-server/endpoint/_monitor?query=my-param',
-          },
-        },
-      } as unknown as Contracts.EnvelopeTelemetry
-      const callResult = skipMonitorRequests(envelope)
-      expect(callResult).toBe(false)
-    })
-    it('logs a non-GET request containing /_monitor', () => {
-      const envelope = {
-        data: {
-          baseType: 'RequestData',
-          baseData: {
-            name: 'POST <any_request_name>',
-            url: 'my-server/endpoint/_monitor',
-          },
-        },
-      } as unknown as Contracts.EnvelopeTelemetry
-      const callResult = skipMonitorRequests(envelope)
-      expect(callResult).toBe(true)
-    })
-    it('logs if processor fails', () => {
-      const name = new Error('this is not a valid string')
-      const envelope = {
-        data: {
-          baseType: 'RequestData',
-          baseData: { name, url: 'my-server/endpoint/_monitor' },
-        },
-      } as unknown as Contracts.EnvelopeTelemetry
-      const callResult = skipMonitorRequests(envelope)
-      expect(callResult).toBe(true)
+
+  describe('hideDbStatement', () => {
+    it('never returns the command it was given', () => {
+      expect(
+        hideDbStatement({ update: 'users', updates: [{ q: { _id: '?' }, u: { $set: { name: '?' } } }] })
+      ).toBeUndefined()
     })
   })
 })

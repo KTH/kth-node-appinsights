@@ -1,96 +1,51 @@
-import * as appInsights from 'applicationinsights'
+import { ClientRequest, IncomingMessage, ServerResponse } from 'http'
+import type { Span } from '@opentelemetry/api'
+import type { DbStatementSerializer } from '@opentelemetry/instrumentation-mongodb'
 
-export const userAgentOnRequest = (envelope: appInsights.Contracts.EnvelopeTelemetry, correlationContext: any = {}) => {
-  if (envelope.data?.baseType === 'RequestData') {
-    const userAgent = correlationContext?.['http.ServerRequest']?.get?.('user-agent')
-    if (userAgent) {
-      if (!envelope.data.baseData) {
-        envelope.data.baseData = {}
-      }
-      if (!envelope.data.baseData.properties) {
-        envelope.data.baseData.properties = {}
-      }
-
-      envelope.data.baseData.properties.user_agent = userAgent
-    }
+// Adds the request's user-agent header as a custom property.
+const setUserAgent = (span: Span, request: IncomingMessage) => {
+  const userAgent = request.headers['user-agent']
+  if (userAgent) {
+    span.setAttribute('user_agent', userAgent)
   }
-  return true
 }
 
-// Logs saved name of the API-key on request, if it exists
-// Keys are handled by kth-node-api-key-strategy package
-export const apiKeyNameOnRequest = (
-  envelope: appInsights.Contracts.EnvelopeTelemetry,
-  correlationContext: any = {}
+// Saves the name of the API-key used on request, if it exists.
+// Keys are set on the request object by the kth-node-api-key-strategy package,
+// which runs as middleware after the span has already been started - so this can
+// only be read once the response is on its way out, not from the earlier requestHook.
+const setApiKeyName = (span: Span, request: IncomingMessage) => {
+  const keyName = (request as IncomingMessage & { apiClient?: { name?: string } }).apiClient?.name
+  if (keyName) {
+    span.setAttribute('api_key_name', keyName)
+  }
+}
+
+export const applyCustomAttributesOnSpan = (
+  span: Span,
+  request: ClientRequest | IncomingMessage,
+  _response: IncomingMessage | ServerResponse
 ) => {
-  if (envelope.data?.baseType === 'RequestData') {
-    const keyName = correlationContext?.['http.ServerRequest']?.apiClient?.name
+  if (!(request instanceof IncomingMessage)) return
 
-    if (keyName) {
-      if (!envelope.data.baseData) {
-        envelope.data.baseData = {}
-      }
-      if (!envelope.data.baseData.properties) {
-        envelope.data.baseData.properties = {}
-      }
-
-      envelope.data.baseData.properties.api_key_name = keyName
-    }
-  }
-  return true
+  setUserAgent(span, request)
+  setApiKeyName(span, request)
 }
 
-// Bynyan messages (used by @kth/log) are structured like { name: "my-app", level: 30, msg: "the important part" }
-// This keeps only the "msg" field, as the rest of the data is duplicated by applicationinsights
-export const unpackBunyanLog = (envelope: appInsights.Contracts.EnvelopeTelemetry) => {
-  if (envelope.data?.baseType === 'MessageData') {
-    try {
-      if (!envelope.data.baseData?.message) return true
-
-      const originalMessage = JSON.parse(envelope.data.baseData?.message || '')
-
-      if (originalMessage.msg && originalMessage.name && originalMessage.level) {
-        envelope.data.baseData.message = originalMessage.msg
-      }
-    } catch (e) {
-      return true
-    }
-  }
-  return true
-}
-
-// Ignore logging any requests to static resources and assets
+// Ignore tracing GET requests to static resources and assets
 // If url matches /<something>/static/<something>
 // If url matches /<something>/assets/<something>
-export const skipResourceRequests = (envelope: appInsights.Contracts.EnvelopeTelemetry) => {
-  try {
-    if (envelope.data?.baseType !== 'RequestData') return true
-    if (!envelope.data.baseData?.url) return true
+const isResourceRequest = (request: IncomingMessage) =>
+  request.method === 'GET' &&
+  !!request.url &&
+  (/\/[\w\-.]+\/static\/\w+/.test(request.url) || /\/[\w\-.]+\/assets\/\w+/.test(request.url))
 
-    if (envelope.data.baseData?.name.includes('GET ') && /\/[\w\-.]+\/static\/\w+/.test(envelope.data.baseData?.url)) {
-      return false
-    }
-    if (envelope.data.baseData?.name.includes('GET ') && /\/[\w\-.]+\/assets\/\w+/.test(envelope.data.baseData?.url)) {
-      return false
-    }
-  } catch (e) {
-    return true
-  }
-  return true
-}
+// Ignore tracing GET requests to /_monitor
+const isMonitorRequest = (request: IncomingMessage) =>
+  request.method === 'GET' && !!request.url && request.url.includes('/_monitor')
 
-// Ignore logging any monitor requests
-// If url matches /<something>/_monitor
-export const skipMonitorRequests = (envelope: appInsights.Contracts.EnvelopeTelemetry) => {
-  try {
-    if (envelope.data?.baseType !== 'RequestData') return true
-    if (!envelope.data.baseData?.url) return true
+export const ignoreIncomingRequestHook = (request: IncomingMessage) =>
+  isResourceRequest(request) || isMonitorRequest(request)
 
-    if (envelope.data.baseData?.name.includes('GET ') && envelope.data.baseData?.url.includes('/_monitor')) {
-      return false
-    }
-  } catch (e) {
-    return true
-  }
-  return true
-}
+// Never include the MongoDB "command" in telemetry
+export const hideDbStatement = (() => undefined) as unknown as DbStatementSerializer
