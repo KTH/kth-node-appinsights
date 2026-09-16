@@ -52,7 +52,7 @@ MongoDB and Redis dependency calls are tracked by default. Disable either with `
 
 ### Custom dependencies
 
-Track a call to something not already auto-collected (HTTP, MongoDB, Redis, ...), which shows up in Application
+Track a call to something not already auto-collected ( MongoDB, Redis, ...), which shows up in Application
 Insights' `Dependencies` view.
 
 ```typescript
@@ -63,6 +63,20 @@ KthAppinsights.trackDependency({
   success: true,
   duration: 5, // milliseconds
   resultCode: 200, // Maps to a custom field
+})
+```
+
+### Custom HTTP dependencies
+
+Track an outgoing HTTP call that isn't auto-collected, which shows up in Application
+Insights' `Dependencies` view.
+
+```typescript
+KthAppinsights.trackHttpDependency({
+  url: 'https://api.kth.se/api/search?q=test',
+  duration: 5, // milliseconds
+  method: 'GET',
+  statusCode: 200,
 })
 ```
 

@@ -20,7 +20,7 @@ import * as os from 'os'
 export * as AppinsightsUtils from './utils'
 
 import { applyCustomAttributesOnSpan, ignoreIncomingRequestHook, hideDbStatement } from './telemetryProcessors'
-import { trackEvent, trackMetric, trackDependency } from './tracking'
+import { trackEvent, trackMetric, trackDependency, trackHttpDependency } from './tracking'
 
 const httpInstrumentationConfig: HttpInstrumentationConfig = {
   enabled: true,
@@ -92,6 +92,7 @@ const buildResource = (name: string) => {
 export const KthAppinsights = {
   init,
   trackDependency,
+  trackHttpDependency,
   trackEvent,
   trackMetric,
   shutdown,

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.1.0] - 2026-09-16
+
+### Added
+
+`KthAppinsights.trackHttpDependency({ url, method, statusCode })` to track custom http dependencies.
+
 ## [1.0.0] - 2026-08-19
 
 ### Added
