@@ -33,22 +33,22 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "@azure/monitor-opentelemetry": "^1.19.0",
+    "@azure/monitor-opentelemetry": "^1.20.0",
     "@opentelemetry/api": "^1.9.1",
-    "@opentelemetry/api-logs": "^0.221.0",
-    "@opentelemetry/instrumentation-http": "^0.221.0",
-    "@opentelemetry/instrumentation-mongodb": "^0.74.0",
-    "@opentelemetry/resources": "^2.10.0"
+    "@opentelemetry/api-logs": "^0.222.0",
+    "@opentelemetry/instrumentation-http": "^0.222.0",
+    "@opentelemetry/instrumentation-mongodb": "^0.75.0",
+    "@opentelemetry/resources": "^2.11.0"
   },
   "devDependencies": {
     "@kth/eslint-config-kth": "^3.7.0",
     "@types/jest": "^30.0.0",
-    "@types/node": "^22.20.1",
+    "@types/node": "^22.20.3",
     "eslint": "^8.57.1",
     "husky": "^9.1.7",
-    "jest": "^30.4.2",
+    "jest": "^30.5.1",
     "lint-staged": "^15.5.2",
-    "prettier": "^3.9.6",
+    "prettier": "^3.9.7",
     "ts-jest": "^29.4.12",
     "typescript": "^5.9.3"
   },
