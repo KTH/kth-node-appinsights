@@ -38,7 +38,7 @@
     "@opentelemetry/api-logs": "^0.222.0",
     "@opentelemetry/instrumentation-http": "^0.222.0",
     "@opentelemetry/instrumentation-mongodb": "^0.75.0",
-    "@opentelemetry/resources": "^2.11.0"
+    "@opentelemetry/resources": "^3.0.0"
   },
   "devDependencies": {
     "@kth/eslint-config-kth": "^4.1.0",
